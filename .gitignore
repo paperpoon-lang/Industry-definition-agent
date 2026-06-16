@@ -1,0 +1,7 @@
+.env
+reports/
+checkpoints/
+test_results/
+__pycache__/
+*.pyc
+.DS_Store
