@@ -12,7 +12,7 @@
 v4 与 v2 的关键差异：
 - 不做 Evaluator-Optimizer 自动修正闭环（Step 5 失败只注入警告）
 - 不做 Model Router（单一模型）
-- Circuit Breaker 打桩为 call_with_retry（非完整状态机）
+- Circuit Breaker 打桩为 call_with_timeout（非完整状态机，仅超时+重试）
 - Context Builder 四层（新增任务指令层）
 
 使用方式：
@@ -46,7 +46,7 @@ from models import ReportState, StepOutput, StepBudget, STEP_BUDGETS
 from context_builder import ContextBuilder
 from evaluator import evaluate, mock_evaluate
 from search import search_with_fallback, mock_search
-from harness.circuit_breaker import call_with_retry
+from harness.circuit_breaker import call_with_timeout
 from harness.session_log import SimpleLogger
 from harness.checkpoint import save_checkpoint, try_resume
 
@@ -57,6 +57,11 @@ from harness.checkpoint import save_checkpoint, try_resume
 
 SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 SILICONFLOW_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
+
+# Step 4 max_tokens：二分查找安全冗余值（候选：16000→12000→10000→8000）
+# 当前值 16000 保持与 v4 一致，待二分查找后调整
+# 用法：STEP4_MAX_TOKENS=12000 python3 frost_agent.py "低空经济物流"
+STEP4_MAX_TOKENS = int(os.getenv("STEP4_MAX_TOKENS", "16000"))
 
 # 六步定义（Step 6 为输出组装，无 LLM 调用，故不列入 LLM 步骤列表）
 STEPS_DEFINITION = [
@@ -168,8 +173,14 @@ def _strip_preamble(text: str) -> str:
 # LLM 调用封装
 # ============================================================
 
-async def call_llm(system_prompt: str, user_prompt: str) -> dict[str, Any]:
+async def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 16000, timeout: float = 180.0) -> dict[str, Any]:
     """统一的 LLM 调用函数（OpenAI 兼容 SDK，默认走硅基流动 SiliconFlow）。
+
+    Args:
+        system_prompt: 系统提示词
+        user_prompt: 用户提示词
+        max_tokens: 输出 Token 上限（API 参数，控制生成长度）
+        timeout: HTTP 请求超时（秒），作为底层兜底；上层 call_with_timeout 提供步骤级超时
 
     Returns:
         {"text": str, "token_usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}}
@@ -189,7 +200,7 @@ async def call_llm(system_prompt: str, user_prompt: str) -> dict[str, Any]:
         }
 
     from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=config["api_key"], base_url=config["base_url"])
+    client = AsyncOpenAI(api_key=config["api_key"], base_url=config["base_url"], timeout=timeout)
     response = await client.chat.completions.create(
         model=config["model"],
         messages=[
@@ -197,7 +208,7 @@ async def call_llm(system_prompt: str, user_prompt: str) -> dict[str, Any]:
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.3,
-        max_tokens=16000,
+        max_tokens=max_tokens,
     )
     text = response.choices[0].message.content or ""
     usage = {
@@ -485,7 +496,10 @@ async def _run_step1(
 
     context = context_builder.build(step_id, state)
     user_prompt = context + f"\n\n## 搜索结果\n\n{json.dumps(search_result, ensure_ascii=False, indent=2)}"
-    llm_result = await call_with_retry(lambda: call_llm(context, user_prompt))
+    llm_result = await call_with_timeout(
+        lambda: call_llm(context, user_prompt),
+        timeout_seconds=STEP_BUDGETS[step_id].timeout_seconds,
+    )
     logger.log("llm_raw_response", {"step_id": step_id, "text_preview": llm_result["text"][:1000]})
     parsed = _parse_json_response(llm_result["text"])
 
@@ -513,7 +527,12 @@ async def _run_step(
     logger.log("step_start", {"step_id": step_id})
 
     context = context_builder.build(step_id, state)
-    llm_result = await call_with_retry(lambda: call_llm(context, context))
+    # Step 4 使用 STEP4_MAX_TOKENS（支持环境变量二分查找），其他步骤用默认值
+    step4_max_tokens = STEP4_MAX_TOKENS if step_id == "4_content_generation" else 16000
+    llm_result = await call_with_timeout(
+        lambda: call_llm(context, context, max_tokens=step4_max_tokens),
+        timeout_seconds=STEP_BUDGETS[step_id].timeout_seconds,
+    )
     logger.log("llm_raw_response", {"step_id": step_id, "text_preview": llm_result["text"][:1000]})
     parsed = _parse_json_response(llm_result["text"])
 
@@ -578,15 +597,21 @@ async def _run_step5(
     report_to_check = _get_report_from_state(state)
 
     # 包装 llm_call_fn 供 evaluator 使用（evaluator 用 keyword args 调用）
+    # 捕获 token_usage 供 P0-3 成本审计（v1.2 修复：原版丢弃了 token_usage）
+    step5_token_usage: dict = {}
+
     async def _llm_call_fn(system_prompt: str, user_prompt: str) -> str:
         r = await call_llm(system_prompt, user_prompt)
+        if r.get("token_usage"):
+            step5_token_usage.update(r["token_usage"])
         return r["text"]
 
     if mock:
         eval_result = mock_evaluate(report_to_check, industry_name)
     else:
-        eval_result = await call_with_retry(
-            lambda: evaluate(report_to_check, industry_name, _llm_call_fn)
+        eval_result = await call_with_timeout(
+            lambda: evaluate(report_to_check, industry_name, _llm_call_fn),
+            timeout_seconds=STEP_BUDGETS[step_id].timeout_seconds,
         )
 
     overall = eval_result.get("overall", "fail_with_fixes")
@@ -607,6 +632,7 @@ async def _run_step5(
         confidence=confidence,
         result=eval_result, abandoned=[],
         methodology_ref=METHODOLOGY_REFS[step_id],
+        token_usage=step5_token_usage if step5_token_usage else None,
     ))
     save_checkpoint(state, step_id)
     logger.log("step_complete", {"step_id": step_id, "overall": overall, "failed": failed})
@@ -646,6 +672,21 @@ async def _run_step6(
         f"*总 Token 消耗: {total_tokens} | 步骤数: {len(state.steps)}*"
     )
 
+    # P0-3 成本审计：打印每步 Token 明细
+    print(f"\n  Token 明细（P0-3 成本审计）:")
+    print(f"  {'步骤':<25} {'prompt':>10} {'completion':>12} {'total':>10}")
+    print(f"  {'-'*25} {'-'*10} {'-'*12} {'-'*10}")
+    for s in state.steps:
+        if s.token_usage:
+            pt = s.token_usage.get("prompt_tokens", 0)
+            ct = s.token_usage.get("completion_tokens", 0)
+            tt = s.token_usage.get("total_tokens", 0)
+            print(f"  {s.step_id:<25} {pt:>10} {ct:>12} {tt:>10}")
+        else:
+            print(f"  {s.step_id:<25} {'N/A':>10} {'N/A':>12} {'N/A':>10}")
+    print(f"  {'-'*25} {'-'*10} {'-'*12} {'-'*10}")
+    print(f"  {'合计':<25} {'':>10} {'':>12} {total_tokens:>10}")
+
     state.final_report = final_report
     logger.log("complete", {"report_length": len(final_report), "total_tokens": total_tokens})
     save_checkpoint(state, "6_output")
@@ -654,7 +695,8 @@ async def _run_step6(
     reports_dir = Path(os.getenv("REPORTS_DIR", str(PROJECT_ROOT / "reports")))
     reports_dir.mkdir(parents=True, exist_ok=True)
     safe_name = industry_name.replace("/", "_").replace(" ", "_")
-    report_path = reports_dir / f"{safe_name}_行业定义报告.md"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    report_path = reports_dir / f"{safe_name}_{timestamp}_行业定义报告.md"
     report_path.write_text(final_report, encoding="utf-8")
 
     print(f"  报告已保存到: {report_path}")

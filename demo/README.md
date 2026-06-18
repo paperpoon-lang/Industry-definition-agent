@@ -77,7 +77,7 @@ demo/
 ├── .env.example              # 环境变量模板
 ├── 方法论-v2.md              # 方法论文档
 ├── harness/
-│   ├── circuit_breaker.py    # 打桩：call_with_retry
+│   ├── circuit_breaker.py    # 打桩：call_with_timeout（非熔断，仅超时+重试）
 │   ├── session_log.py        # 打桩：SimpleLogger
 │   └── checkpoint.py         # 打桩：save/load JSON
 ├── reports/                  # 生成的报告
