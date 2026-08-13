@@ -1,0 +1,8 @@
+pydantic>=2.0
+openai>=1.0
+tavily-python>=0.3.0
+python-dotenv>=1.0
+pyyaml>=6.0
+# v5.2 修复：测试依赖（修复计划 v1.2 补充）
+pytest>=7.0.3
+pytest-asyncio>=0.21.0
