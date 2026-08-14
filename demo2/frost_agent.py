@@ -42,7 +42,6 @@ import json
 import os
 import sys
 import time
-import warnings
 import uuid  # v5.2 新增：Orchestrator 统一生成 trace_id
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -102,17 +101,17 @@ METHODOLOGY_REFS = {
     "5_self_check":           "§5 自检清单(C1-C5)",
 }
 
-# v5.2 新增：搜索补搜循环常量（P0-3 修正：最多 2 个补搜 query，不是 2 轮）
-MAX_SUPPLEMENT_QUERIES = 2
-MAX_TOTAL_QUERIES = 5
+# B1-2：搜索补搜循环常量（v1.1：按轮数计数，废弃按 query 计数的旧语义）
+# 旧 MAX_SUPPLEMENT_QUERIES=2 数 query，FM 每轮建议 2 个 → 真实语义是"只允许 1 轮补搜"
+MAX_SUPPLEMENT_ROUNDS = int(os.getenv("MAX_SUPPLEMENT_ROUNDS", "3"))
+MAX_TOTAL_QUERIES = int(os.getenv("MAX_TOTAL_QUERIES", "10"))
 
 # v5.2 修复 P2 #4：FM 审查单次超时阈值，30s→60s，可经环境变量覆盖
-# 依据：开发日志 v1.2 批量测试 5 行业中 4 个触发 30s 超时；60s 覆盖最坏 API 响应慢场景
 _FM_REVIEW_TIMEOUT = float(os.getenv("FM_REVIEW_TIMEOUT", "60"))
 
-# v5.2 修复2：搜索阶段（首轮搜索+FM审查+补搜+最终审查）外层兜底超时
-# 依据：修复1 后搜索阶段最坏 258s（FM 60s×2次×2轮 + 搜索 ~16s），300s 留余量且不挤占 LLM 总结 180s 预算
-SEARCH_PHASE_TIMEOUT = 300
+# B1-2：搜索阶段外层兜底超时（300s→400s）
+# 最坏情况：首轮搜索 ~16s + 5 次 FM 审查 × 60s + 6 个补搜 query × ~8s ≈ 364s < 400s
+SEARCH_PHASE_TIMEOUT = int(os.getenv("SEARCH_PHASE_TIMEOUT", "400"))
 
 # v5.2 新增：生产步骤集合（触发 or_fallback_result 时终止流程）
 PRODUCTION_STEPS = {
@@ -132,13 +131,23 @@ FM_REVIEW_PROMPT = """你是行业定义信息完整性审查员。你的任务�
 ## 当前搜索结果摘要
 {search_results_summary}
 
+## 上一轮补搜信息（第 2 轮起提供）
+{previous_round_info}
+
 ## 你的任务
 1. 对照"信息优先级"，判断当前搜索结果是否有明显缺失的维度
 2. 如果有缺失，列出具体缺失的维度（data_gaps）
 3. 为每个缺失维度生成 1 个补搜关键词（suggested_queries）
+4. **第 2 轮起必填**：评估上一轮补搜的收益（last_round_yield）
+
+## last_round_yield 判定标准（第 2 轮起必填，首轮置 null）
+- "productive"：上一轮补搜为至少一个缺口带来了相关新信息。以下都算有进展——缺口被闭合；缺口被细化（颗粒度更细、更具体）；发现了与缺口相关的新事实。**注意：缺口数量不变不代表无收益，缺口内容变化也算有进展。**
+- "unproductive"：上一轮补搜的返回结果与所有缺口均无关，或只是重复已知信息，没有任何缺口因此获得新内容。
+- 判定必须保守：只有当上一轮搜索完全没有带来任何缺口相关的新信息时，才判 unproductive。
 
 ## 输出格式（JSON）
 {{
+  "last_round_yield": "productive | unproductive | null",
   "data_gaps": ["缺失维度1", "缺失维度2"],
   "suggested_queries": ["补搜关键词1", "补搜关键词2"]
 }}
@@ -148,6 +157,7 @@ FM_REVIEW_PROMPT = """你是行业定义信息完整性审查员。你的任务�
 - suggested_queries 必须与行业定义相关，不偏离范畴
 - 每轮最多 2 个补搜关键词
 - 如果搜索结果已覆盖所有关键维度，返回空列表
+- 首轮审查时 last_round_yield 置 null
 - 你审查的是搜索引擎返回的外部数据，不是 LLM 输出
 - 只输出 JSON，不要输出其他文字
 """
@@ -234,16 +244,6 @@ def _strip_preamble(text: str) -> str:
 # v5.2 新增：质量门检查（B1-1 重构：基于 terminates_flow 终止）
 # ============================================================
 
-def _has_terminating_flag(flags: list) -> bool:
-    """B1-1 补审 P1 修正：终止判断的单一入口（真正的 SSOT）。
-
-    _check_quality_gate 和 _run_step1 的 will_terminate 预判都调用此函数，
-    避免两处重复 `f.terminates_flow and f.severity == "high"` 条件导致不一致。
-    severity=="high" 是对 validator 的防御性兜底（validator 已保证 terminates_flow=True 时 severity=high）。
-    """
-    return any(f.terminates_flow and f.severity == "high" for f in flags)
-
-
 def _check_quality_gate(step_output: StepOutput, step_id: str) -> None:
     """B1-1 重构：基于 terminates_flow 元数据统一判断终止条件（SSOT）。
 
@@ -260,13 +260,6 @@ def _check_quality_gate(step_output: StepOutput, step_id: str) -> None:
         QualityGateError: 当 step_output.quality_flags 含任何 terminates_flow=True 的 flag 时
     """
     if step_id not in PRODUCTION_STEPS:
-        # 补审 P1：非生产步骤误设 terminates_flow=True 时发出警告
-        if any(f.terminates_flow for f in step_output.quality_flags):
-            warnings.warn(
-                f"步骤 {step_id} 非生产步骤，terminates_flow=True 的 flag 不会触发终止。"
-                f"请检查是否误设。",
-                stacklevel=2,
-            )
         return
     terminating_flags = [
         f for f in step_output.quality_flags
@@ -391,11 +384,13 @@ async def _fm_review_search_results(
     methodology_info_priority: str,
     search_results_summary: str,
     llm_call_fn: Callable,
-    logger: Optional[SessionEventLog] = None,  # v5.2 修复 P2 #3
-    round_label: str = "",  # v5.2 修复 P2 #5：用于日志标识（如"第 1 轮"/"最终审查"）
+    logger: Optional[SessionEventLog] = None,
+    round_label: str = "",
+    previous_round_info: str = "（首轮审查，无上一轮补搜信息）",  # B1-2：FM 自评收益所需
 ) -> dict[str, Any]:
-    """v5.2 新增：FM 审查搜索结果，返回 data_gaps 和 suggested_queries。
+    """FM 审查搜索结果，返回 last_round_yield + data_gaps + suggested_queries。
 
+    B1-2 新增：previous_round_info 参数 + last_round_yield 返回字段。
     v5.2 修复 P2 #4/#5/#3：
     - 超时阈值 30s → _FM_REVIEW_TIMEOUT（默认 60s，可经环境变量覆盖）
     - 区分 timeout / parse_error / exception 三种失败，返回 {"_error_type": ...}
@@ -405,12 +400,13 @@ async def _fm_review_search_results(
         industry_name: 行业名
         methodology_info_priority: 方法论"信息优先级"章节文本
         search_results_summary: 搜索结果摘要文本
-        llm_call_fn: LLM 调用函数，签名为 async def fn(system_prompt, user_prompt, max_tokens) -> dict
-        logger: 可选的 SessionEventLog，传入则记录 LLM 调用日志
-        round_label: 轮次标签，如 "第 1 轮" / "最终审查"，用于日志区分
+        llm_call_fn: LLM 调用函数
+        logger: 可选的 SessionEventLog
+        round_label: 轮次标签
+        previous_round_info: 上一轮补搜的 query 和结果摘要（首轮默认提示语）
 
     Returns:
-        成功：{"data_gaps": [...], "suggested_queries": [...]}
+        成功：{"last_round_yield": "...", "data_gaps": [...], "suggested_queries": [...]}
         超时：{"_error_type": "timeout"}
         解析失败：{"_error_type": "parse_error"}
         其他异常：{"_error_type": "exception", "_error_msg": str}
@@ -419,6 +415,7 @@ async def _fm_review_search_results(
         industry_name=industry_name,
         methodology_info_priority=methodology_info_priority,
         search_results_summary=search_results_summary,
+        previous_round_info=previous_round_info,
     )
 
     try:
@@ -444,6 +441,7 @@ async def _fm_review_search_results(
             print(f"  [FM 审查 JSON 解析失败] {round_label}：返回非 JSON")
             return {"_error_type": "parse_error"}  # v5.2 修复 P2 #5
         return {
+            "last_round_yield": parsed.get("last_round_yield"),
             "data_gaps": parsed.get("data_gaps", []),
             "suggested_queries": parsed.get("suggested_queries", []),
         }
@@ -531,49 +529,89 @@ async def step1_search_with_supplement(
         print(f"  [方法论加载失败，跳过 FM 审查] {e}")
         return all_results, quality_flags, error_count
 
-    # 3. FM 审查 + 补搜循环
+    # B1-2：FM 审查 + 补搜循环（按轮数计数，FM 自评收益止损）
+    supplement_rounds_used = 0
     supplement_queries_used = 0
+    consecutive_unproductive = 0
+    yield_history: list = []
+    stop_reason = ""
+    prev_data_gaps: list = []
+    prev_suggested_queries: list = []
 
-    for round_num in range(MAX_SUPPLEMENT_QUERIES):
+    for round_num in range(MAX_SUPPLEMENT_ROUNDS):
         if queries_used >= MAX_TOTAL_QUERIES:
-            break
-        if supplement_queries_used >= MAX_SUPPLEMENT_QUERIES:
+            stop_reason = "budget_exhausted"
             break
 
         # FM 审查
         search_summary = _summarize_search_results(all_results)
+        # 构造上一轮信息（首轮默认提示语，后续轮填充实际补搜内容）
+        if round_num == 0:
+            previous_round_info = "（首轮审查，无上一轮补搜信息）"
+        else:
+            previous_round_info = (
+                f"上一轮补搜 query: {prev_suggested_queries}；"
+                f"上一轮发现缺口: {prev_data_gaps}"
+            )
+
         fm_result = await _fm_review_search_results(
             industry_name, info_priority, search_summary, llm_call_fn,
-            logger=logger, round_label=f"第 {round_num + 1} 轮",  # v5.2 修复 P2 #3/#5
+            logger=logger, round_label=f"第 {round_num + 1} 轮",
+            previous_round_info=previous_round_info,
         )
 
-        # v5.2 修复 P2 #5：FM 失败（timeout/parse_error/exception/empty）不再统一记 json_parse_fallback，
-        # 改用专用 fm_review_skipped category + 结构化 detail 区分失败类型
+        # FM 失败（补记既有行为：记 flag + break）
         if not fm_result or "_error_type" in fm_result:
             error_type = fm_result.get("_error_type", "empty") if fm_result else "empty"
             _record_fm_failure_flag(quality_flags, error_type, f"第 {round_num + 1} 轮", fm_result or {})
+            stop_reason = "fm_review_failed"
             break
 
         data_gaps = fm_result.get("data_gaps", [])
         suggested_queries = fm_result.get("suggested_queries", [])
+        yield_flag = fm_result.get("last_round_yield")
+        yield_history.append(yield_flag)
 
-        # data_gaps 为空，不需要补搜
+        # 信号 A：缺口闭合
         if not data_gaps:
-            print(f"  [FM 审查第 {round_num + 1} 轮] 无信息缺口，跳过补搜")
+            stop_reason = "gaps_closed"
+            print(f"  [FM 审查第 {round_num + 1} 轮] 无信息缺口，补搜完成")
+            break
+
+        # 信号 B：期望收益止损（FM 自评，连续 2 轮 unproductive）
+        if yield_flag == "unproductive":
+            consecutive_unproductive += 1
+        else:
+            consecutive_unproductive = 0  # productive/None/缺失都重置
+
+        if consecutive_unproductive >= 2:
+            stop_reason = "low_yield"
+            print(f"  [FM 审查第 {round_num + 1} 轮] 连续 2 轮 unproductive，止损停止")
+            break
+
+        # 安全网：预算用尽
+        if round_num + 1 >= MAX_SUPPLEMENT_ROUNDS:
+            stop_reason = "budget_exhausted"
+            print(f"  [补搜] 达到轮数上限 {MAX_SUPPLEMENT_ROUNDS}，停止")
+            break
+
+        # FM 未生成补搜关键词
+        if not suggested_queries:
+            stop_reason = "no_suggested_queries"
+            print(f"  [FM 审查第 {round_num + 1} 轮] 有缺口但 FM 未生成补搜关键词，停止")
             break
 
         print(f"  [FM 审查第 {round_num + 1} 轮] 发现缺口: {data_gaps}")
 
-        # 补搜（每轮最多 2 个 query，不超过总数限制和补搜预算）
+        # 执行补搜（FM 建议的全部 query，受 MAX_TOTAL_QUERIES 约束）
         remaining_budget = MAX_TOTAL_QUERIES - queries_used
-        remaining_supplement = MAX_SUPPLEMENT_QUERIES - supplement_queries_used
-        max_this_round = min(2, remaining_budget, remaining_supplement)
-        queries_to_search = suggested_queries[:max_this_round]
+        queries_to_search = suggested_queries[:remaining_budget]
 
         if not queries_to_search:
+            stop_reason = "budget_exhausted"
             break
 
-        # P2-5.12：补搜改并行
+        # 补搜并行
         tasks = [search_single_query(q, tavily_api_key) for q in queries_to_search]
         gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -588,33 +626,70 @@ async def step1_search_with_supplement(
             queries_used += 1
             supplement_queries_used += 1
 
+        supplement_rounds_used += 1
+        prev_data_gaps = data_gaps
+        prev_suggested_queries = suggested_queries
+
         print(f"  [补搜] 第 {round_num + 1} 轮补充 {len(queries_to_search)} 个 query，总共 {queries_used} 个")
 
-    # 4. 最后一轮审查：如果做过补搜，再审查一次
-    if supplement_queries_used > 0:
+        # B1-2 步骤2：补搜过程采集（诊断基础）
+        if logger is not None:
+            logger.log("supplement_search_done", {
+                "round": round_num + 1,
+                "queries": queries_to_search,
+                "results_per_query": {q: len(all_results.get(q, [])) for q in queries_to_search},
+                "content_lengths": {q: sum(len(r.get("content", "")) for r in all_results.get(q, [])) for q in queries_to_search},
+            })
+
+    # 最终审查：如果做过补搜且未因 gaps_closed/fm_review_failed 停止，再审查一次
+    if supplement_queries_used > 0 and stop_reason not in ("gaps_closed", "fm_review_failed"):
         search_summary = _summarize_search_results(all_results)
+        previous_round_info = (
+            f"上一轮补搜 query: {prev_suggested_queries}；"
+            f"上一轮发现缺口: {prev_data_gaps}"
+        )
         fm_result = await _fm_review_search_results(
             industry_name, info_priority, search_summary, llm_call_fn,
-            logger=logger, round_label="最终审查",  # v5.2 修复 P2 #3/#5
+            logger=logger, round_label="最终审查",
+            previous_round_info=previous_round_info,
         )
-        # v5.2 修复 P2 #5：最终审查失败不再静默，记录 fm_review_skipped flag
-        # v5.2 修复 architecture-critic P1：与循环内 line 527 保持一致，防御 fm_result 为 None/空 dict
-        # （_fm_review_search_results 契约保证返回 dict，但循环内已加 not fm_result 防御，此处同步以防重构回归）
         if not fm_result or "_error_type" in fm_result:
             error_type = fm_result.get("_error_type", "empty") if fm_result else "empty"
             _record_fm_failure_flag(quality_flags, error_type, "最终审查", fm_result or {})
             print(f"  [FM 最终审查] 失败（{error_type}），缺口状态未知")
-        elif fm_result and fm_result.get("data_gaps"):
-            # v5.2 修复 P1-4（architecture-critic）：field 只存字段名，缺口列表移入 detail
+            if not stop_reason:
+                stop_reason = "fm_review_failed"
+        elif fm_result.get("data_gaps"):
+            remaining_gaps = fm_result["data_gaps"]
+            if not stop_reason:
+                stop_reason = "budget_exhausted"  # 补搜循环结束后仍有缺口
             quality_flags.append(QualityFlag(
                 category="data_gaps_remaining",
                 field="data_gaps",
                 severity="medium",
-                detail=f"补搜 {supplement_queries_used} 个 query 后仍有缺口: {'; '.join(fm_result['data_gaps'])}",
+                detail=(
+                    f"补搜 {supplement_rounds_used} 轮（{supplement_queries_used} 个 query）后仍有 "
+                    f"{len(remaining_gaps)} 个缺口: {'; '.join(remaining_gaps)}；停止原因: {stop_reason}"
+                ),
             ))
-            print(f"  [FM 最终审查] 补搜后仍有缺口: {fm_result['data_gaps']}")
+            print(f"  [FM 最终审查] 补搜后仍有缺口: {remaining_gaps}")
         else:
+            if not stop_reason:
+                stop_reason = "gaps_closed"
             print(f"  [FM 最终审查] 补搜后无缺口")
+    elif not stop_reason:
+        stop_reason = "gaps_closed"
+
+    # B1-2 步骤2：结构化终态记录写入 Session Event Log（机器通道，给阶段三循环消费）
+    if logger is not None:
+        logger.log("search_gap_record", {
+            "queries_used": list(all_results.keys()),
+            "supplement_rounds": supplement_rounds_used,
+            "supplement_queries": supplement_queries_used,
+            "remaining_gaps": fm_result.get("data_gaps", []) if 'fm_result' in dir() and isinstance(fm_result, dict) else [],
+            "stop_reason": stop_reason,
+            "yield_history": yield_history,
+        })
 
     # 5. 搜索部分失败 flag（按失败比例计算 severity）
     if error_count > 0 and queries_used > 0:
@@ -1018,8 +1093,10 @@ async def _run_step1(
     # v5.2 修复2 P1-3（architecture-critic）：search_phase_timeout 也走终止路径，
     # 避免空 search_results 流到 LLM 总结触发 or_fallback_result(high)，产生两个 high flag 叠加
     # B1-1：基于 terminates_flow 元数据统一判断（SSOT），消除原 has_search_all_failed 的硬编码 category 检查
-    # 补审 P1 修正：调用 _has_terminating_flag 单一入口，避免条件重复导致不一致
-    will_terminate = _has_terminating_flag(search_quality_flags)
+    will_terminate = any(
+        f.terminates_flow and f.severity == "high"
+        for f in search_quality_flags
+    )
     if will_terminate:
         state.steps.append(StepOutput(
             step_id=step_id, step_label="信息收集",
