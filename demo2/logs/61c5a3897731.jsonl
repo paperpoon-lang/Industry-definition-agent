@@ -1,0 +1,2 @@
+{"timestamp": "2026-06-25T05:58:57.088564+00:00", "trace_id": "61c5a3897731", "industry": "白银", "event_type": "start", "data": {"industry": "白银", "trace_id": "61c5a3897731", "mock": false, "mock_search": false}}
+{"timestamp": "2026-06-25T05:58:57.088694+00:00", "trace_id": "61c5a3897731", "industry": "白银", "event_type": "step_start", "data": {"step_id": "1_info_collection"}}

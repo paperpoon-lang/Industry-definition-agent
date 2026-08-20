@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib  # v1.3 新增：内容指纹计算
 import json
 import os
 import sys
@@ -113,14 +114,23 @@ _FM_REVIEW_TIMEOUT = float(os.getenv("FM_REVIEW_TIMEOUT", "60"))
 # 最坏情况：首轮搜索 ~16s + 5 次 FM 审查 × 60s + 6 个补搜 query × ~8s ≈ 364s < 400s
 SEARCH_PHASE_TIMEOUT = int(os.getenv("SEARCH_PHASE_TIMEOUT", "400"))
 
+# B1-2 v1.4：前瞻继续论证配置（范式反转：默认不搜下一轮，除非给出继续理由）
+# 保底轮数：第1轮补搜无条件放行，第2轮起要求有效继续理由
+MIN_GUARANTEED_ROUNDS = int(os.getenv("MIN_GUARANTEED_ROUNDS", "1"))
+# 影子模式：true 时继续理由照常要求/验证/记录，但理由无效不拦截（v1.3 STOP_LOSS_SHADOW_MODE 改名，
+# v1.4 罩的是理由门控而非止损；该变量无外部依赖，直接改不留别名）
+JUSTIFICATION_SHADOW_MODE = os.getenv("JUSTIFICATION_SHADOW_MODE", "true").lower() == "true"
+# 指纹阈值（v1.4 降为纯审计，不参与任何拦截）
+FINGERPRINT_OVERLAP_THRESHOLD = float(os.getenv("FINGERPRINT_OVERLAP_THRESHOLD", "0.8"))
+
 # v5.2 新增：生产步骤集合（触发 or_fallback_result 时终止流程）
 PRODUCTION_STEPS = {
     "1_info_collection", "2_dimension_screening",
     "3_structure_decision", "4_content_generation",
 }
 
-# v5.2 新增：FM 审查 prompt（基于方法论"信息优先级"）
-FM_REVIEW_PROMPT = """你是行业定义信息完整性审查员。你的任务是判断当前搜索结果是否覆盖了行业定义所需的关键信息维度。
+# v5.2 新增：FM 审查 prompt（基于方法论"信息优先级"）；v1.4 重写：前瞻继续论证范式
+FM_REVIEW_PROMPT = """你是行业定义信息完整性审查员。你的任务是判断当前搜索结果是否覆盖了行业定义所需的关键信息维度，并论证是否值得继续补搜。
 
 ## 行业
 {industry_name}
@@ -131,33 +141,52 @@ FM_REVIEW_PROMPT = """你是行业定义信息完整性审查员。你的任务�
 ## 当前搜索结果摘要
 {search_results_summary}
 
-## 上一轮补搜信息（第 2 轮起提供）
-{previous_round_info}
+## 已试 query 清单（生成 suggested_queries 时避免重复，换角度如换英文/标准号/机构名定点搜）
+{seen_queries_list}
 
 ## 你的任务
-1. 对照"信息优先级"，判断当前搜索结果是否有明显缺失的维度
-2. 如果有缺失，列出具体缺失的维度（data_gaps）
-3. 为每个缺失维度生成 1 个补搜关键词（suggested_queries）
-4. **第 2 轮起必填**：评估上一轮补搜的收益（last_round_yield）
+1. 对照"信息优先级"，判断当前搜索结果是否有明显缺失的**事实性信息**维度
+2. **只报告可通过搜索补全的事实性信息缺口**——以下不属于 data_gaps：
+   - 维度选择/放弃的理由说明（属于报告推理义务，R2规则）
+   - 结构性特征与当前热点的区分（属于报告推理义务，C3自检项）
+   - 任何"为什么选择X而非Y"的论证（属于报告推理义务）
+   若发现上述推理义务类缺口，在内部识别后从 data_gaps 中排除，不写入返回列表
+3. 为每个事实性缺口标注 `gap_type`：
+   - `not_found`：信息可能不存在（如新兴行业在GICS/NAICS中的编码归属）
+   - `snippet_too_shallow`：信息存在但Tavily片段太浅（如标准号已知但参数缺失）
+   - `source_tier`：信息存在但信源层级不足（如需要P0级一手文件但只有媒体报道）
+4. 为每个缺失维度生成 1 个补搜关键词（suggested_queries），**不要重复已试 query**
+5. **前瞻继续论证（v1.4 核心变更）**：默认不继续补搜——除非你能给出值得再搜一轮的结构化理由（next_round_justification）
 
-## last_round_yield 判定标准（第 2 轮起必填，首轮置 null）
-- "productive"：上一轮补搜为至少一个缺口带来了相关新信息。以下都算有进展——缺口被闭合；缺口被细化（颗粒度更细、更具体）；发现了与缺口相关的新事实。**注意：缺口数量不变不代表无收益，缺口内容变化也算有进展。**
-- "unproductive"：上一轮补搜的返回结果与所有缺口均无关，或只是重复已知信息，没有任何缺口因此获得新内容。
-- 判定必须保守：只有当上一轮搜索完全没有带来任何缺口相关的新信息时，才判 unproductive。
+## next_round_justification 三要素（引用你本轮输出的 data_gaps，0-based）
+每条理由必须同时包含：
+- `target_gap_index`：针对本轮 data_gaps 中哪个缺口（0-based，严格按你本轮输出的缺口列表编号）
+- `new_direction`：与"已试 query 清单"不同的新搜索角度（如换英文检索/换标准号定点搜/换机构名/换文件类型）
+- `reachability`：基于当前搜索结果中的具体信息（标准号/机构名/URL特征等），为什么认为这个方向可能搜得到
+
+判据：若所有残留缺口都属于"换任何query也搜不到"的类型（如信息不存在/片段太浅/信源不足），
+或你给不出真实的新角度，应返回空数组 []——系统将停止补搜，这是诚实且正确的停止。
 
 ## 输出格式（JSON）
 {{
-  "last_round_yield": "productive | unproductive | null",
-  "data_gaps": ["缺失维度1", "缺失维度2"],
-  "suggested_queries": ["补搜关键词1", "补搜关键词2"]
+  "data_gaps": ["事实性缺口1", "事实性缺口2"],
+  "gap_types": ["not_found", "snippet_too_shallow"],
+  "suggested_queries": ["补搜关键词1", "补搜关键词2"],
+  "next_round_justification": [
+    {{"target_gap_index": 0, "new_direction": "换标准号定点搜：检索GB/T正式发布文本", "reachability": "标准号已在搜索结果中出现，全文检索有命中可能"}}
+  ]
 }}
 
 ## 约束
 - data_gaps 必须具体（如"缺少技术路线对比"而非"信息不够"）
+- data_gaps 只包含事实性信息缺口，不包含推理义务（维度选择理由等）
+- gap_types 长度必须与 data_gaps 相同
+- next_round_justification 的 target_gap_index 严格按本轮 data_gaps 编号（0-based）
+- new_direction 不得是已试 query 的同义改写；reachability 应引用当前结果中的具体信息
+- 若无缺口（data_gaps 为空），suggested_queries 与 next_round_justification 均置空数组
+- 若有缺口但不值得继续搜，next_round_justification 置空数组 []
 - suggested_queries 必须与行业定义相关，不偏离范畴
 - 每轮最多 2 个补搜关键词
-- 如果搜索结果已覆盖所有关键维度，返回空列表
-- 首轮审查时 last_round_yield 置 null
 - 你审查的是搜索引擎返回的外部数据，不是 LLM 输出
 - 只输出 JSON，不要输出其他文字
 """
@@ -379,6 +408,108 @@ def _record_fm_failure_flag(
     ))
 
 
+def _mechanical_yield_judgment(
+    queries_this_round: list[str],
+    results_per_query: dict[str, int],
+    seen_queries: set[str],
+) -> str:
+    """v1.2：机械信号收益判定。返回 'productive' | 'unproductive'。
+
+    零 LLM 成本、可单测。v1.4 起降为纯审计信号（mechanical_history 字段），不参与任何拦截。
+    覆盖局限：无法捕获"不同query返回相似内容"场景（该场景由指纹审计同记录）。
+
+    判定规则（按优先级）：
+    1. 全部重复query → unproductive（步骤1去重后应0次触发，作安全网）
+    2. 全部零返回 → unproductive
+    3. 其他 → productive（保守，不轻易误判）
+    """
+    # 信号1：全部重复（步骤1去重后理论上不会发生，作安全网）
+    if all(q.strip() in seen_queries for q in queries_this_round):
+        return "unproductive"
+
+    # 信号2：全部零返回
+    if all(results_per_query.get(q, 0) == 0 for q in queries_this_round):
+        return "unproductive"
+
+    return "productive"
+
+
+def _make_fingerprint(item: dict) -> str:
+    """v1.3 信号2：单条搜索结果指纹。URL优先，URL为空时fallback到内容前200字符。
+
+    URL相同 = 同一页面 = 信息必然重复，且字符串相等比对零成本；
+    内容hash可捕获镜像/转载（不同URL同内容），URL为空时兜底。
+    """
+    url = (item.get("url") or "").strip()
+    if url:
+        return f"url:{url}"
+    content = (item.get("content") or "")[:200]
+    return f"content:{hashlib.sha256(content.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _content_fingerprint_overlap(
+    round_items: list[dict],
+    historical_fingerprints: set[str],
+    threshold: float = FINGERPRINT_OVERLAP_THRESHOLD,
+) -> str:
+    """v1.3 信号2：本轮结果与全历史指纹集合的重叠判定。
+
+    重叠率 = 本轮中已存在于历史集合的条目数 / 本轮总条目数（不去重计数：
+    同一URL在本轮2个query各返回一次算2条——都返回老页面即无新信息的语义成立）。
+
+    与全部历史比对（非仅上一轮）：捕获"第3轮返回第1轮内容"的跨轮回归。
+
+    Returns:
+        'unproductive'：重叠率 >= threshold
+        'productive'：重叠率 < threshold，或本轮无有效条目（零返回由机械信号负责，职责分离）
+    """
+    if not round_items:
+        return "productive"
+    fps = [_make_fingerprint(r) for r in round_items]
+    overlap = sum(1 for fp in fps if fp in historical_fingerprints)
+    return "unproductive" if overlap / len(fps) >= threshold else "productive"
+
+
+def _validate_justification(
+    justification: Any,
+    current_data_gaps: list[str],
+) -> bool:
+    """v1.4：验证FM继续理由有效性。任一条有效即返回True（前瞻继续论证闸门）。
+
+    验证规则（按方案§3.1只做两层：非空+index合法，不做内容二次验证）：
+    1. 非数组（含v1.3旧格式字符串/None）→ 无效
+    2. 数组为空 → 无效（= 给不出理由 → 不支持继续）
+    3. 元素非dict / 缺 target_gap_index/new_direction/reachability → 该条无效
+    4. target_gap_index 为 bool → 该条无效（bool是int子类，True==1会穿透isinstance检查）
+    5. target_gap_index 非整数或超出当前缺口列表范围 → 该条无效
+    6. new_direction / reachability 为空字符串 → 该条无效
+
+    注：new_direction"是否真的新"不在此验证——由机器质检（query去重）+人工抽查把关。
+
+    Args:
+        justification: FM返回的继续理由（应为 [{"target_gap_index": int, "new_direction": str, "reachability": str}]）
+        current_data_gaps: 本轮FM自己输出的缺口列表（验证基准，同源自引用，无跨轮错位）
+    """
+    if not isinstance(justification, list) or not justification:
+        return False
+    for item in justification:
+        if not isinstance(item, dict):
+            continue
+        gi = item.get("target_gap_index")
+        new_direction = item.get("new_direction", "")
+        reachability = item.get("reachability", "")
+        if isinstance(gi, bool):
+            continue
+        if not isinstance(gi, int):
+            continue
+        if gi < 0 or gi >= len(current_data_gaps):
+            continue
+        if not (new_direction or "").strip() or not (reachability or "").strip():
+            continue
+        return True  # 任一条有效
+    return False
+
+
 async def _fm_review_search_results(
     industry_name: str,
     methodology_info_priority: str,
@@ -386,11 +517,13 @@ async def _fm_review_search_results(
     llm_call_fn: Callable,
     logger: Optional[SessionEventLog] = None,
     round_label: str = "",
-    previous_round_info: str = "（首轮审查，无上一轮补搜信息）",  # B1-2：FM 自评收益所需
+    seen_queries_list: str = "（首轮无已试 query）",  # v1.2 步骤3：注入已试query清单
 ) -> dict[str, Any]:
-    """FM 审查搜索结果，返回 last_round_yield + data_gaps + suggested_queries。
+    """FM 审查搜索结果，返回 data_gaps + gap_types + suggested_queries + next_round_justification。
 
-    B1-2 新增：previous_round_info 参数 + last_round_yield 返回字段。
+    v1.4 范式重写：移除 previous_round_info/last_round_yield/yield_evidence（回顾性机制废弃），
+    新增 next_round_justification（前瞻继续论证）。理由引用FM同响应内的 data_gaps，无跨轮错位。
+    v1.2 新增：seen_queries_list 参数 + gap_types 返回字段。
     v5.2 修复 P2 #4/#5/#3：
     - 超时阈值 30s → _FM_REVIEW_TIMEOUT（默认 60s，可经环境变量覆盖）
     - 区分 timeout / parse_error / exception 三种失败，返回 {"_error_type": ...}
@@ -403,10 +536,10 @@ async def _fm_review_search_results(
         llm_call_fn: LLM 调用函数
         logger: 可选的 SessionEventLog
         round_label: 轮次标签
-        previous_round_info: 上一轮补搜的 query 和结果摘要（首轮默认提示语）
+        seen_queries_list: 已试query清单文本（v1.2 步骤3，注入prompt防止FM重复建议）
 
     Returns:
-        成功：{"last_round_yield": "...", "data_gaps": [...], "suggested_queries": [...]}
+        成功：{"data_gaps": [...], "gap_types": [...], "suggested_queries": [...], "next_round_justification": [...]}
         超时：{"_error_type": "timeout"}
         解析失败：{"_error_type": "parse_error"}
         其他异常：{"_error_type": "exception", "_error_msg": str}
@@ -415,7 +548,7 @@ async def _fm_review_search_results(
         industry_name=industry_name,
         methodology_info_priority=methodology_info_priority,
         search_results_summary=search_results_summary,
-        previous_round_info=previous_round_info,
+        seen_queries_list=seen_queries_list,
     )
 
     try:
@@ -424,6 +557,7 @@ async def _fm_review_search_results(
                 system_prompt="你是行业定义信息完整性审查员。",
                 user_prompt=prompt,
                 max_tokens=2000,
+                reasoning_effort="none",  # B1-2：FM 审查是 JSON 格式判断，关闭思考避免 content 为空
             ),
             timeout_seconds=_FM_REVIEW_TIMEOUT,  # v5.2 修复 P2 #4：30s → 60s（可配置）
             max_retries=1,
@@ -441,9 +575,10 @@ async def _fm_review_search_results(
             print(f"  [FM 审查 JSON 解析失败] {round_label}：返回非 JSON")
             return {"_error_type": "parse_error"}  # v5.2 修复 P2 #5
         return {
-            "last_round_yield": parsed.get("last_round_yield"),
             "data_gaps": parsed.get("data_gaps", []),
+            "gap_types": parsed.get("gap_types", []),
             "suggested_queries": parsed.get("suggested_queries", []),
+            "next_round_justification": parsed.get("next_round_justification", []),  # v1.4（验证函数容忍非list）
         }
     except asyncio.TimeoutError:
         # v5.2 修复 P2 #4/#5：区分超时
@@ -529,35 +664,44 @@ async def step1_search_with_supplement(
         print(f"  [方法论加载失败，跳过 FM 审查] {e}")
         return all_results, quality_flags, error_count
 
-    # B1-2：FM 审查 + 补搜循环（按轮数计数，FM 自评收益止损）
+    # B1-2：FM 审查 + 补搜循环（v1.4：前瞻继续论证范式）
+    # v1.2：seen_queries 去重（strip 规范化）
+    # v1.4：默认不搜下一轮，除非FM给出有效继续理由（三要素）；保底轮内无条件放行；
+    #       移除v1.3全部回顾性机制（fm_effective/三信号OR/None断链/consecutive/low_yield）；
+    #       指纹/机械信号降为纯审计采集
     supplement_rounds_used = 0
     supplement_queries_used = 0
-    consecutive_unproductive = 0
-    yield_history: list = []
     stop_reason = ""
     prev_data_gaps: list = []
     prev_suggested_queries: list = []
+    seen_queries: set[str] = {q.strip() for q in all_results.keys()}  # 首轮3个query入集合
+    # v1.4 审计状态
+    justification_history: list = []         # 每轮FM继续理由原样落盘（审计主数据源）
+    justification_valid_history: list = []   # 每轮理由验证结果
+    round_gap_types: list = []               # 每轮审查的gap_types（r3：支持gap_type门控对照分析）
+    round_partial_signals: list[dict] = []   # 每轮审计信号（指纹+机械，纯记录不拦截），1-based补搜轮编号
+    # 首轮静态搜索结果指纹预填充历史集合（审计基准）
+    historical_fingerprints: set[str] = {
+        _make_fingerprint(r)
+        for items in all_results.values()
+        for r in items
+        if r.get("title") != "搜索失败"
+    }
 
     for round_num in range(MAX_SUPPLEMENT_ROUNDS):
         if queries_used >= MAX_TOTAL_QUERIES:
             stop_reason = "budget_exhausted"
             break
 
-        # FM 审查
+        # FM 审查（v1.4：无previous_round_info——理由引用当前轮缺口清单，同源自引用）
         search_summary = _summarize_search_results(all_results)
-        # 构造上一轮信息（首轮默认提示语，后续轮填充实际补搜内容）
-        if round_num == 0:
-            previous_round_info = "（首轮审查，无上一轮补搜信息）"
-        else:
-            previous_round_info = (
-                f"上一轮补搜 query: {prev_suggested_queries}；"
-                f"上一轮发现缺口: {prev_data_gaps}"
-            )
+        # v1.2 步骤3：构造已试query清单文本（注入prompt防止FM重复建议）
+        seen_queries_list = "\n".join(f"  - {q}" for q in sorted(seen_queries)) if seen_queries else "（无）"
 
         fm_result = await _fm_review_search_results(
             industry_name, info_priority, search_summary, llm_call_fn,
             logger=logger, round_label=f"第 {round_num + 1} 轮",
-            previous_round_info=previous_round_info,
+            seen_queries_list=seen_queries_list,
         )
 
         # FM 失败（补记既有行为：记 flag + break）
@@ -569,8 +713,14 @@ async def step1_search_with_supplement(
 
         data_gaps = fm_result.get("data_gaps", [])
         suggested_queries = fm_result.get("suggested_queries", [])
-        yield_flag = fm_result.get("last_round_yield")
-        yield_history.append(yield_flag)
+        gap_types = fm_result.get("gap_types", [])
+        justification = fm_result.get("next_round_justification", [])
+
+        # v1.4：理由验证 + 审计记录（验证基准=本轮FM自己输出的data_gaps，同源无错位）
+        justification_valid = _validate_justification(justification, data_gaps)
+        justification_history.append(justification)
+        justification_valid_history.append(justification_valid)
+        round_gap_types.append((gap_types or [])[:len(data_gaps)])
 
         # 信号 A：缺口闭合
         if not data_gaps:
@@ -578,18 +728,17 @@ async def step1_search_with_supplement(
             print(f"  [FM 审查第 {round_num + 1} 轮] 无信息缺口，补搜完成")
             break
 
-        # 信号 B：期望收益止损（FM 自评，连续 2 轮 unproductive）
-        if yield_flag == "unproductive":
-            consecutive_unproductive += 1
-        else:
-            consecutive_unproductive = 0  # productive/None/缺失都重置
+        # v1.4 核心门控：保底轮后要求有效继续理由（影子模式下仅记录不拦截）
+        # 时序保证：理由验证在query去重判定之前（P值分母不被硬闸门污染，方案§3.6）
+        if round_num >= MIN_GUARANTEED_ROUNDS and not justification_valid:
+            if JUSTIFICATION_SHADOW_MODE:
+                print(f"  [理由门控-影子] 第 {round_num + 1} 轮继续理由缺失/无效，影子模式仅记录不拦截")
+            else:
+                stop_reason = "no_justification"
+                print(f"  [FM 审查第 {round_num + 1} 轮] 有缺口但无有效继续理由，停止补搜（前瞻论证范式）")
+                break
 
-        if consecutive_unproductive >= 2:
-            stop_reason = "low_yield"
-            print(f"  [FM 审查第 {round_num + 1} 轮] 连续 2 轮 unproductive，止损停止")
-            break
-
-        # 安全网：预算用尽
+        # 安全网：轮数上限
         if round_num + 1 >= MAX_SUPPLEMENT_ROUNDS:
             stop_reason = "budget_exhausted"
             print(f"  [补搜] 达到轮数上限 {MAX_SUPPLEMENT_ROUNDS}，停止")
@@ -604,14 +753,20 @@ async def step1_search_with_supplement(
         print(f"  [FM 审查第 {round_num + 1} 轮] 发现缺口: {data_gaps}")
 
         # 执行补搜（FM 建议的全部 query，受 MAX_TOTAL_QUERIES 约束）
+        # v1.2 步骤1：执行前去重（strip 规范化），避免重复 query 白烧预算
         remaining_budget = MAX_TOTAL_QUERIES - queries_used
-        queries_to_search = suggested_queries[:remaining_budget]
+        new_queries = [q for q in suggested_queries if q.strip() not in seen_queries]
+        queries_to_search = new_queries[:remaining_budget]
 
         if not queries_to_search:
-            stop_reason = "budget_exhausted"
+            if not new_queries:
+                stop_reason = "query_space_exhausted"  # FM 建议的全部 query 已试过
+                print(f"  [补搜] 第 {round_num + 1} 轮 FM 建议的 query 全部已试过，关键词空间穷尽")
+            else:
+                stop_reason = "budget_exhausted"  # 有新 query 但预算用尽
             break
 
-        # 补搜并行
+        # 补搜并行（执行前不更新 seen_queries，避免机械信号误判本轮query为重复）
         tasks = [search_single_query(q, tavily_api_key) for q in queries_to_search]
         gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -632,26 +787,58 @@ async def step1_search_with_supplement(
 
         print(f"  [补搜] 第 {round_num + 1} 轮补充 {len(queries_to_search)} 个 query，总共 {queries_used} 个")
 
-        # B1-2 步骤2：补搜过程采集（诊断基础）
+        # 补搜过程采集（诊断基础）
+        current_results_per_query = {q: len(all_results.get(q, [])) for q in queries_to_search}
+        current_content_lengths = {q: sum(len(r.get("content", "")) for r in all_results.get(q, [])) for q in queries_to_search}
+        # 过滤搜索失败条目后收集本轮有效结果（指纹计算用）
+        current_valid_items = [
+            r for q in queries_to_search for r in all_results.get(q, [])
+            if r.get("title") != "搜索失败"
+        ]
         if logger is not None:
             logger.log("supplement_search_done", {
                 "round": round_num + 1,
                 "queries": queries_to_search,
-                "results_per_query": {q: len(all_results.get(q, [])) for q in queries_to_search},
-                "content_lengths": {q: sum(len(r.get("content", "")) for r in all_results.get(q, [])) for q in queries_to_search},
+                "results_per_query": current_results_per_query,
+                "content_lengths": current_content_lengths,
+                # 指纹样本（完整指纹的hash前缀，等长无碰撞歧义，支持离线重算）
+                "fingerprints_sample": [
+                    hashlib.sha256(fp.encode()).hexdigest()[:16]
+                    for fp in (_make_fingerprint(r) for r in current_valid_items)
+                ],
             })
 
-    # 最终审查：如果做过补搜且未因 gaps_closed/fm_review_failed 停止，再审查一次
-    if supplement_queries_used > 0 and stop_reason not in ("gaps_closed", "fm_review_failed"):
-        search_summary = _summarize_search_results(all_results)
-        previous_round_info = (
-            f"上一轮补搜 query: {prev_suggested_queries}；"
-            f"上一轮发现缺口: {prev_data_gaps}"
+        # v1.4：指纹/机械信号降为纯审计采集（不参与任何拦截）
+        fingerprint_yield = _content_fingerprint_overlap(
+            current_valid_items, historical_fingerprints, FINGERPRINT_OVERLAP_THRESHOLD,
         )
+        mechanical_yield = _mechanical_yield_judgment(
+            queries_to_search, current_results_per_query, seen_queries,
+        )
+        round_partial_signals.append({
+            "round": round_num + 1,  # 1-based 补搜轮编号
+            "fingerprint": fingerprint_yield,
+            "mechanical": mechanical_yield,
+        })
+        if fingerprint_yield == "unproductive":
+            print(f"  [审计-指纹] 第 {round_num + 1} 轮返回与历史重叠率≥{FINGERPRINT_OVERLAP_THRESHOLD}")
+        if mechanical_yield == "unproductive":
+            print(f"  [审计-机械] 第 {round_num + 1} 轮重复query或零返回")
+
+        # 更新 seen_queries（供下一轮去重 + prompt注入）
+        seen_queries.update(q.strip() for q in queries_to_search)
+        # 指纹并入历史集合（供后续审计比对）
+        historical_fingerprints.update(_make_fingerprint(r) for r in current_valid_items)
+
+    # 最终审查：如果做过补搜且未因 gaps_closed/fm_review_failed/no_justification 停止，再审查一次
+    if supplement_queries_used > 0 and stop_reason not in ("gaps_closed", "fm_review_failed", "no_justification"):
+        search_summary = _summarize_search_results(all_results)
+        # 注入已试query清单（v1.4：无previous_round_info，与循环内格式一致）
+        seen_queries_list = "\n".join(f"  - {q}" for q in sorted(seen_queries)) if seen_queries else "（无）"
         fm_result = await _fm_review_search_results(
             industry_name, info_priority, search_summary, llm_call_fn,
             logger=logger, round_label="最终审查",
-            previous_round_info=previous_round_info,
+            seen_queries_list=seen_queries_list,
         )
         if not fm_result or "_error_type" in fm_result:
             error_type = fm_result.get("_error_type", "empty") if fm_result else "empty"
@@ -661,16 +848,36 @@ async def step1_search_with_supplement(
                 stop_reason = "fm_review_failed"
         elif fm_result.get("data_gaps"):
             remaining_gaps = fm_result["data_gaps"]
+            final_gap_types = fm_result.get("gap_types", [])
             if not stop_reason:
                 stop_reason = "budget_exhausted"  # 补搜循环结束后仍有缺口
+            # v1.2 步骤3：QualityFlag detail 按 gap_type 路由不同文案（zip_longest 兜底）
+            from itertools import zip_longest
+            # BUG修复：gap_types 截断到 data_gaps 长度，避免幽灵 gap 名
+            final_gap_types = (final_gap_types or [])[:len(remaining_gaps)]
+            not_found_gaps = [g for g, t in zip_longest(remaining_gaps, final_gap_types, fillvalue="untyped") if t == "not_found"]
+            shallow_gaps = [g for g, t in zip_longest(remaining_gaps, final_gap_types, fillvalue="untyped") if t == "snippet_too_shallow"]
+            source_tier_gaps = [g for g, t in zip_longest(remaining_gaps, final_gap_types, fillvalue="untyped") if t == "source_tier"]
+            # BUG修复：用排除式而非 == "untyped"，捕获非标准 gap_type 值
+            untyped_gaps = [g for g, t in zip_longest(remaining_gaps, final_gap_types, fillvalue="untyped") if t not in ("not_found", "snippet_too_shallow", "source_tier")]
+            # 兜底：若所有分组都为空（不应发生但防御），回退到列出全部缺口
+            if not any([not_found_gaps, shallow_gaps, source_tier_gaps, untyped_gaps]):
+                untyped_gaps = list(remaining_gaps)
+            detail_parts = []
+            if not_found_gaps:
+                detail_parts.append(f"信息不存在型({len(not_found_gaps)}个): {'; '.join(not_found_gaps)}")
+            if shallow_gaps:
+                detail_parts.append(f"片段过浅型({len(shallow_gaps)}个，待阶段三深搜): {'; '.join(shallow_gaps)}")
+            if source_tier_gaps:
+                detail_parts.append(f"信源不足型({len(source_tier_gaps)}个，待阶段三一手源): {'; '.join(source_tier_gaps)}")
+            if untyped_gaps:
+                detail_parts.append(f"未分类({len(untyped_gaps)}个): {'; '.join(untyped_gaps)}")
+            detail = f"补搜 {supplement_rounds_used} 轮（{supplement_queries_used} 个 query）后仍有 {len(remaining_gaps)} 个缺口；停止原因: {stop_reason}；" + "；".join(detail_parts)
             quality_flags.append(QualityFlag(
                 category="data_gaps_remaining",
                 field="data_gaps",
                 severity="medium",
-                detail=(
-                    f"补搜 {supplement_rounds_used} 轮（{supplement_queries_used} 个 query）后仍有 "
-                    f"{len(remaining_gaps)} 个缺口: {'; '.join(remaining_gaps)}；停止原因: {stop_reason}"
-                ),
+                detail=detail,
             ))
             print(f"  [FM 最终审查] 补搜后仍有缺口: {remaining_gaps}")
         else:
@@ -681,14 +888,23 @@ async def step1_search_with_supplement(
         stop_reason = "gaps_closed"
 
     # B1-2 步骤2：结构化终态记录写入 Session Event Log（机器通道，给阶段三循环消费）
+    # v1.4：justification_history/justification_valid_history/round_gap_types（审计主数据源）
+    #       指纹/机械降为审计字段；移除v1.3的yield_history/round_signals/low_yield_trigger_history
     if logger is not None:
         logger.log("search_gap_record", {
             "queries_used": list(all_results.keys()),
             "supplement_rounds": supplement_rounds_used,
             "supplement_queries": supplement_queries_used,
             "remaining_gaps": fm_result.get("data_gaps", []) if 'fm_result' in dir() and isinstance(fm_result, dict) else [],
+            "gap_types": fm_result.get("gap_types", []) if 'fm_result' in dir() and isinstance(fm_result, dict) else [],
             "stop_reason": stop_reason,
-            "yield_history": yield_history,
+            "justification_history": justification_history,  # v1.4：每轮继续理由原样落盘（审计主数据源）
+            "justification_valid_history": justification_valid_history,  # v1.4：每轮理由验证结果
+            "round_gap_types": round_gap_types,  # v1.4：每轮审查的gap_types（gap_type门控对照分析用）
+            "fingerprint_history": [r["fingerprint"] for r in round_partial_signals],  # 指纹审计（不拦截）
+            "mechanical_history": [r["mechanical"] for r in round_partial_signals],  # 机械审计（不拦截）
+            "fingerprint_threshold": FINGERPRINT_OVERLAP_THRESHOLD,
+            "shadow_mode": JUSTIFICATION_SHADOW_MODE,
         })
 
     # 5. 搜索部分失败 flag（按失败比例计算 severity）
@@ -706,14 +922,17 @@ async def step1_search_with_supplement(
 # LLM 调用封装
 # ============================================================
 
-async def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 16000, timeout: float = 180.0) -> dict[str, Any]:
-    """统一的 LLM 调用函数（OpenAI 兼容 SDK，默认走硅基流动 SiliconFlow）。
+async def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 16000, timeout: float = 180.0, reasoning_effort: str = "none") -> dict[str, Any]:
+    """统一的 LLM 调用函数（OpenAI 兼容 SDK）。
 
     Args:
         system_prompt: 系统提示词
         user_prompt: 用户提示词
         max_tokens: 输出 Token 上限（API 参数，控制生成长度）
         timeout: HTTP 请求超时（秒），作为底层兜底；上层 call_with_timeout 提供步骤级超时
+        reasoning_effort: 推理强度（"none"/"high"/"max"），默认 "none" 关闭思考。
+                          DeepSeek 官方 API 默认 high 会导致响应过慢+content 为空问题。
+                          如需开思考模式，显式传 "high" 或 "max"。
 
     Returns:
         {"text": str, "token_usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}}
@@ -734,16 +953,36 @@ async def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 16000
 
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=config["api_key"], base_url=config["base_url"], timeout=timeout)
-    response = await client.chat.completions.create(
-        model=config["model"],
-        messages=[
+
+    # 构造 API 参数
+    api_kwargs = {
+        "model": config["model"],
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.3,
-        max_tokens=max_tokens,
-    )
-    text = response.choices[0].message.content or ""
+        "temperature": 0.3,
+        "max_tokens": max_tokens,
+    }
+    # DeepSeek V4 Pro 的 reasoning_effort 参数（通过 extra_body 传递）
+    if reasoning_effort is not None:
+        api_kwargs["extra_body"] = {
+            "thinking": {
+                "type": "enabled" if reasoning_effort != "none" else "disabled",
+            }
+        }
+        if reasoning_effort != "none":
+            api_kwargs["extra_body"]["thinking"]["reasoning_effort"] = reasoning_effort
+
+    response = await client.chat.completions.create(**api_kwargs)
+
+    # DeepSeek 思考模式：content 是最终回答，reasoning_content 是思考过程
+    # 如果 content 为空但 reasoning_content 有值，从 reasoning_content fallback
+    msg = response.choices[0].message
+    text = msg.content or ""
+    if not text and hasattr(msg, 'reasoning_content') and msg.reasoning_content:
+        text = msg.reasoning_content
+        print("  [LLM 警告] content 为空，从 reasoning_content fallback")
     usage = {
         "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
         "completion_tokens": response.usage.completion_tokens if response.usage else 0,

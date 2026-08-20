@@ -1,0 +1,16 @@
+# methodology/_meta.yaml
+# v5.1 补充：version 字段仅用于追溯，不参与运行时逻辑
+# 版本迁移策略：不支持运行时切换，手动替换全部文件
+# fallback 文件应始终保持为最新完整版本
+version: "v2"
+modules:
+  - name: hard_rules
+    file: hard_rules.md
+    keywords: ["Hard Rules", "R1", "R2", "R3", "R4", "R5"]
+  - name: heuristics
+    file: heuristics.md
+    keywords: ["维度筛选原则", "Heuristics", "H1", "H2", "H3", "H4", "信息优先级", "报告范围约束", "范围约束", "报告结构启发式", "报告结构", "推理展示"]
+  - name: self_check
+    file: self_check.md
+    keywords: ["自检清单", "C1", "C2", "C3", "C4", "C5"]
+fallback: methodology_full.md

@@ -1,0 +1,5 @@
+{"timestamp": "2026-08-14T10:46:55.336395+00:00", "trace_id": "6ce1a108c18f", "industry": "钙钛矿", "event_type": "start", "data": {"industry": "钙钛矿", "trace_id": "6ce1a108c18f", "mock": false, "mock_search": false}}
+{"timestamp": "2026-08-14T10:46:55.336656+00:00", "trace_id": "6ce1a108c18f", "industry": "钙钛矿", "event_type": "step_start", "data": {"step_id": "1_info_collection"}}
+{"timestamp": "2026-08-14T10:47:31.856162+00:00", "trace_id": "6ce1a108c18f", "industry": "钙钛矿", "event_type": "llm_raw_response", "data": {"step_id": "1_info_collection_fm_review", "round_label": "第 1 轮", "text_preview": ""}}
+{"timestamp": "2026-08-14T10:47:31.857327+00:00", "trace_id": "6ce1a108c18f", "industry": "钙钛矿", "event_type": "search_gap_record", "data": {"queries_used": ["钙钛矿 行业定义 官方定义 标准", "钙钛矿 政策 监管 产业链", "钙钛矿 边界 与相邻行业区分"], "supplement_rounds": 0, "supplement_queries": 0, "remaining_gaps": [], "stop_reason": "fm_review_failed", "yield_history": []}}
+{"timestamp": "2026-08-14T10:47:31.857526+00:00", "trace_id": "6ce1a108c18f", "industry": "钙钛矿", "event_type": "search_done", "data": {"query_count": 3, "errors": 0, "quality_flags_count": 1}}

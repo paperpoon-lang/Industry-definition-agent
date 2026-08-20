@@ -1,0 +1,52 @@
+{
+  "trace_id": "72e397a34124",
+  "industry": "细胞培养肉",
+  "timestamp": "2026-08-17T12:14:37.493028+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 28137,
+      "completion_tokens": 3831,
+      "total_tokens": 31968
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3348,
+      "completion_tokens": 1576,
+      "total_tokens": 4924
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 2964,
+      "completion_tokens": 1018,
+      "total_tokens": 3982
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 3778,
+      "completion_tokens": 5871,
+      "total_tokens": 9649
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 6231,
+      "completion_tokens": 277,
+      "total_tokens": 6508
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 44458,
+    "total_completion_tokens": 12573,
+    "total_tokens": 57031,
+    "input_cost_cny": 0.1334,
+    "output_cost_cny": 0.0754,
+    "total_cost_cny": 0.2088,
+    "total_cost_usd": 0.029
+  }
+}

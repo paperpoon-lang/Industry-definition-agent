@@ -1,0 +1,52 @@
+{
+  "trace_id": "cd58cd5b7161",
+  "industry": "室内垂直农业",
+  "timestamp": "2026-08-17T12:08:30.381922+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 29913,
+      "completion_tokens": 3590,
+      "total_tokens": 33503
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3360,
+      "completion_tokens": 1483,
+      "total_tokens": 4843
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 2986,
+      "completion_tokens": 1603,
+      "total_tokens": 4589
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 3810,
+      "completion_tokens": 6489,
+      "total_tokens": 10299
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 6849,
+      "completion_tokens": 292,
+      "total_tokens": 7141
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 46918,
+    "total_completion_tokens": 13457,
+    "total_tokens": 60375,
+    "input_cost_cny": 0.1408,
+    "output_cost_cny": 0.0807,
+    "total_cost_cny": 0.2215,
+    "total_cost_usd": 0.0308
+  }
+}

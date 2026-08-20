@@ -55,14 +55,6 @@ KNOWN_CATEGORIES: set[str] = {
     "search_phase_timeout",     # v5.2 修复2：搜索阶段整体超时放弃（不重试、未成功，与 timeout_retry 语义相反）
 }
 
-# B1-1 补审 P0 修正：必然终止的 category 集合（反向约束用）
-# 这些 category 语义上必然终止流程，QualityFlag 构造时必须设 terminates_flow=True。
-# 防止开发者漏设 terminates_flow 导致静默生成垃圾报告。
-ALWAYS_TERMINATING_CATEGORIES: set[str] = {
-    "or_fallback_result",       # result 占位必然污染输出
-    "search_phase_timeout",     # 搜索阶段被砍必然无结果可用
-}
-
 # category → 默认 severity 映射（search_partial_failure 需运行时计算，不在此映射）
 CATEGORY_DEFAULT_SEVERITY: dict[str, str] = {
     "llm_empty_field": "medium",
@@ -175,21 +167,6 @@ class QualityFlag(BaseModel):
                 f"terminates_flow=True 时 severity 必须为 'high'，"
                 f"实际为 '{self.severity}'。terminates_flow 表示触发流程终止，"
                 f"仅 severity='high' 时 _check_quality_gate 才会扫描。"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _check_terminates_flow_required(self) -> "QualityFlag":
-        """补审 P0 修正：必然终止的 category 必须 terminates_flow=True。
-
-        防止开发者漏设 terminates_flow 导致 _check_quality_gate 不扫描、
-        流程静默继续用占位符生成垃圾报告。
-        """
-        if self.category in ALWAYS_TERMINATING_CATEGORIES and not self.terminates_flow:
-            raise ValueError(
-                f"category='{self.category}' 语义上必然终止流程，"
-                f"但 terminates_flow=False。漏设会导致静默生成垃圾报告。"
-                f"如确需不终止，请改用其他 category。"
             )
         return self
 

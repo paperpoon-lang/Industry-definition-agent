@@ -1,0 +1,52 @@
+{
+  "trace_id": "d4ee0e2c0957",
+  "industry": "钙钛矿",
+  "timestamp": "2026-08-14T15:34:00.085036+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 29335,
+      "completion_tokens": 4875,
+      "total_tokens": 34210
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3588,
+      "completion_tokens": 2207,
+      "total_tokens": 5795
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 3192,
+      "completion_tokens": 2040,
+      "total_tokens": 5232
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 4004,
+      "completion_tokens": 5573,
+      "total_tokens": 9577
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 5933,
+      "completion_tokens": 293,
+      "total_tokens": 6226
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 46052,
+    "total_completion_tokens": 14988,
+    "total_tokens": 61040,
+    "input_cost_cny": 0.1382,
+    "output_cost_cny": 0.0899,
+    "total_cost_cny": 0.2281,
+    "total_cost_usd": 0.0317
+  }
+}

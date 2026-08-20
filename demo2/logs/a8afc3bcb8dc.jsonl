@@ -1,0 +1,2 @@
+{"timestamp": "2026-06-25T05:52:02.696008+00:00", "trace_id": "a8afc3bcb8dc", "industry": "checkpoint_test_industry", "event_type": "start", "data": {"industry": "checkpoint_test_industry", "trace_id": "a8afc3bcb8dc", "mock": true, "mock_search": true}}
+{"timestamp": "2026-06-25T05:52:02.696299+00:00", "trace_id": "a8afc3bcb8dc", "industry": "checkpoint_test_industry", "event_type": "complete", "data": {"report_length": 1140, "quality_flags_summary_length": 0}}

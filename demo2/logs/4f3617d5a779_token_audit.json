@@ -1,0 +1,52 @@
+{
+  "trace_id": "4f3617d5a779",
+  "industry": "测试行业",
+  "timestamp": "2026-06-29T09:48:11.698319+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 6310,
+      "completion_tokens": 2000,
+      "total_tokens": 8310
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 5610,
+      "completion_tokens": 2000,
+      "total_tokens": 7610
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 4730,
+      "completion_tokens": 2000,
+      "total_tokens": 6730
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 5990,
+      "completion_tokens": 2000,
+      "total_tokens": 7990
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 22640,
+    "total_completion_tokens": 8000,
+    "total_tokens": 30640,
+    "input_cost_cny": 0.0679,
+    "output_cost_cny": 0.048,
+    "total_cost_cny": 0.1159,
+    "total_cost_usd": 0.0161
+  }
+}

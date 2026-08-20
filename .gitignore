@@ -5,3 +5,9 @@ test_results/
 __pycache__/
 *.pyc
 .DS_Store
+# Python 虚拟环境与缓存
+webui/.venv-ui/
+.pytest_cache/
+# 运行数据（测试行业样本与废弃产物，不入库）
+ai_default/
+回收站/

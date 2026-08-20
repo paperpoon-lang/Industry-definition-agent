@@ -1,0 +1,52 @@
+{
+  "trace_id": "845c02ddcdbf",
+  "industry": "固态电池",
+  "timestamp": "2026-06-27T14:54:53.375441+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 23683,
+      "completion_tokens": 2713,
+      "total_tokens": 26396
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3410,
+      "completion_tokens": 1518,
+      "total_tokens": 4928
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 3034,
+      "completion_tokens": 1993,
+      "total_tokens": 5027
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 3870,
+      "completion_tokens": 3173,
+      "total_tokens": 7043
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 3197,
+      "completion_tokens": 786,
+      "total_tokens": 3983
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 37194,
+    "total_completion_tokens": 10183,
+    "total_tokens": 47377,
+    "input_cost_cny": 0.1116,
+    "output_cost_cny": 0.0611,
+    "total_cost_cny": 0.1727,
+    "total_cost_usd": 0.024
+  }
+}

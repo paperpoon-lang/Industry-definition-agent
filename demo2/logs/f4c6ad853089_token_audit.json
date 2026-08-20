@@ -1,0 +1,52 @@
+{
+  "trace_id": "f4c6ad853089",
+  "industry": "脑机接口",
+  "timestamp": "2026-06-27T14:48:30.135199+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 23769,
+      "completion_tokens": 3229,
+      "total_tokens": 26998
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3304,
+      "completion_tokens": 1386,
+      "total_tokens": 4690
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 2926,
+      "completion_tokens": 1690,
+      "total_tokens": 4616
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 3738,
+      "completion_tokens": 3875,
+      "total_tokens": 7613
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 3970,
+      "completion_tokens": 731,
+      "total_tokens": 4701
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 37707,
+    "total_completion_tokens": 10911,
+    "total_tokens": 48618,
+    "input_cost_cny": 0.1131,
+    "output_cost_cny": 0.0655,
+    "total_cost_cny": 0.1786,
+    "total_cost_usd": 0.0248
+  }
+}

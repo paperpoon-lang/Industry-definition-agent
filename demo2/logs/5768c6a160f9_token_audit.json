@@ -1,0 +1,52 @@
+{
+  "trace_id": "5768c6a160f9",
+  "industry": "AI 代码助手",
+  "timestamp": "2026-06-25T06:21:01.321775+00:00",
+  "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+  "steps": [
+    {
+      "step_id": "1_info_collection",
+      "step_label": "信息收集",
+      "prompt_tokens": 14638,
+      "completion_tokens": 3813,
+      "total_tokens": 18451
+    },
+    {
+      "step_id": "2_dimension_screening",
+      "step_label": "维度筛选",
+      "prompt_tokens": 3258,
+      "completion_tokens": 1488,
+      "total_tokens": 4746
+    },
+    {
+      "step_id": "3_structure_decision",
+      "step_label": "结构决策",
+      "prompt_tokens": 2878,
+      "completion_tokens": 1233,
+      "total_tokens": 4111
+    },
+    {
+      "step_id": "4_content_generation",
+      "step_label": "内容生成",
+      "prompt_tokens": 3710,
+      "completion_tokens": 2999,
+      "total_tokens": 6709
+    },
+    {
+      "step_id": "5_self_check",
+      "step_label": "自检",
+      "prompt_tokens": 2762,
+      "completion_tokens": 766,
+      "total_tokens": 3528
+    }
+  ],
+  "summary": {
+    "total_prompt_tokens": 27246,
+    "total_completion_tokens": 10299,
+    "total_tokens": 37545,
+    "input_cost_cny": 0.0817,
+    "output_cost_cny": 0.0618,
+    "total_cost_cny": 0.1435,
+    "total_cost_usd": 0.0199
+  }
+}
