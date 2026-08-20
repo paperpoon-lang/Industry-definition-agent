@@ -1,17 +1,17 @@
-# 行业定义 Agent — Demo (v4)
+# 行业定义 Agent — 主交付（v5.2）
 
-基于 [架构设计 v4](../架构设计/架构设计-Agent架构-v4.md) 和 [架构演进路线图 v2](../架构设计/架构演进路线图-v2.md) 阶段一实现的 Demo MVP。
+主交付物，包含六步流程完整实现 + B1-2 补搜迭代（v1.4）+ harness 全链路审计（SessionEventLog / Checkpoint / TokenAudit / OutputSafety）。
 
 ## 功能
 
 输入行业名称，自动产出符合行业定义方法论的行业定义报告。六步流程：
 
-1. **信息收集** — 并行搜索 + LLM 总结
+1. **信息收集** — 并行搜索 + LLM 总结（含 B1-2 补搜循环）
 2. **维度筛选** — 应用 H1-H4 原则选出核心维度
 3. **结构决策** — 设计报告章节结构
 4. **内容生成** — 撰写完整报告正文
 5. **自检** — 独立 Evaluator 审查（C1-C5），失败时注入警告
-6. **输出** — 组装报告 + Token 统计 + 写入文件
+6. **输出** — 组装报告 + Token/成本统计 + 写入文件
 
 ## 环境准备
 
@@ -32,9 +32,9 @@ cp .env.example .env
 编辑 `.env`，填入：
 
 ```env
-LLM_API_KEY=sk-xxx          # 硅基流动 API Key
-LLM_BASE_URL=https://api.siliconflow.cn/v1
-LLM_MODEL=deepseek-ai/DeepSeek-V4-Pro
+LLM_API_KEY=sk-xxx          # DeepSeek 官方 API Key
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-v4-pro
 TAVILY_API_KEY=tvly-dev-xxx # Tavily 搜索 API Key
 ```
 

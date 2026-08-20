@@ -19,8 +19,8 @@ from pathlib import Path
 from typing import Any
 
 
-# SiliconFlow DeepSeek-V4-Pro 定价（2026-06-18 实测确认，★★★★★ [可信]）
-# 来源：https://siliconflow.cn/pricing
+# DeepSeek-V4-Pro 定价（2026-08-20 更新来源为 DeepSeek 官方，★★★★★ [可信]）
+# 来源：https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 PRICING = {
     "input_per_million": 3.0,   # ¥ / 1M tokens
     "output_per_million": 6.0,  # ¥ / 1M tokens
@@ -95,7 +95,7 @@ class TokenAudit:
             "trace_id": trace_id,
             "industry": industry_name,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "pricing_source": "SiliconFlow DeepSeek-V4-Pro (2026-06-18)",
+            "pricing_source": "DeepSeek-V4-Pro official (DeepSeek api-docs)",
             "steps": steps_data,
             "summary": {
                 "total_prompt_tokens": total_input,

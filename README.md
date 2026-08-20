@@ -1,88 +1,102 @@
-#  Industry-definition-agent — Demo (v4)
+# Industry-definition-agent — 行业定义报告自动生成 Agent
 
-## 功能
+> **v5.2.0**（首个正式 Release）· 技术 Demo · GitHub: [paperpoon-lang/Industry-definition-agent](https://github.com/paperpoon-lang/Industry-definition-agent)
 
-输入行业名称，自动产出符合行业定义方法论的行业定义报告。六步流程：
+输入一个行业名称，自动产出符合行业定义方法论的行业定义报告。核心是六步流程 Agent + 补搜迭代（B1-2 v1.4）与全链路审计 harness。
 
-1. **信息收集** — 并行搜索 + LLM 总结
+![CI](https://github.com/paperpoon-lang/Industry-definition-agent/actions/workflows/tests.yml/badge.svg)
+![License: MIT + CC BY-NC](https://img.shields.io/badge/License-MIT%20%2B%20CC%20BY--NC%204.0-blue.svg)
+![Release](https://img.shields.io/github/v/release/paperpoon-lang/Industry-definition-agent)
+
+## 快速开始（3 步）
+
+1. 克隆仓库：
+
+```bash
+git clone https://github.com/paperpoon-lang/Industry-definition-agent.git
+cd Industry-definition-agent
+```
+
+2. 安装依赖并配置 `.env`：
+
+```bash
+pip install -r demo2/requirements.txt
+cp demo2/.env.example demo2/.env   # 填入 DeepSeek + Tavily 的 API Key
+```
+
+3. 运行一个行业示例：
+
+```bash
+python3 demo2/frost_agent.py "钙钛矿"
+```
+
+报告输出到 `demo2/reports/`。完整过程日志（jsonl + 成本审计）写入 `demo2/logs/`。
+
+## 六步流程
+
+1. **信息收集** — 并行搜索（Tavily）+ LLM 总结，内置 B1-2 补搜循环
 2. **维度筛选** — 应用 H1-H4 原则选出核心维度
 3. **结构决策** — 设计报告章节结构
 4. **内容生成** — 撰写完整报告正文
 5. **自检** — 独立 Evaluator 审查（C1-C5），失败时注入警告
-6. **输出** — 组装报告 + Token 统计 + 写入文件
+6. **输出** — 组装报告 + Token/成本统计 + 写入文件
 
-## 环境准备
-
-### 1. 安装依赖
+## WebUI
 
 ```bash
-pip install -r requirements.txt
+pip install -r webui/requirements-ui.txt
+streamlit run webui/app.py
 ```
 
-### 2. 配置 `.env`
-
-复制模板并填入你的 API Key：
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env`，填入：
-
-```env
-LLM_API_KEY=sk-xxx          # 硅基流动 API Key
-LLM_BASE_URL=https://api.siliconflow.cn/v1
-LLM_MODEL=deepseek-ai/DeepSeek-V4-Pro
-TAVILY_API_KEY=tvly-dev-xxx # Tavily 搜索 API Key
-```
-
-## 使用
-
-```bash
-# 基本用法（真实 API）
-python3 frost_agent.py "行业名称"
-
-# Mock 模式（不调用 API，快速验证流程）
-python3 frost_agent.py "行业名称" --mock
-
-# 从上次中断的 Checkpoint 恢复
-python3 frost_agent.py "行业名称" --resume
-```
-
-**示例**：
-
-```bash
-python3 frost_agent.py "低空经济物流"
-python3 frost_agent.py "新能源汽车"
-python3 frost_agent.py "人工智能医疗"
-```
-
-## 输出
-
-报告保存在 `reports/{行业名}_行业定义报告.md`。
-
-## 文件结构
+## 目录结构
 
 ```
-demo/
-├── frost_agent.py            # 主程序（Orchestrator + 六步 + CLI 入口）
-├── models.py                 # Pydantic 数据模型
-├── methodology_loader.py     # 方法论切片加载器
-├── context_builder.py        # 四层上下文组装器
-├── evaluator.py              # 独立 Evaluator（Step 5）
-├── search.py                 # 并行搜索 + 截断压缩
-├── requirements.txt          # 依赖声明
-├── .env.example              # 环境变量模板
-├── 方法论-v2.md              # 方法论文档
-├── harness/
-│   ├── circuit_breaker.py    # 打桩：call_with_timeout（非熔断，仅超时+重试）
-│   ├── session_log.py        # 打桩：SimpleLogger
-│   └── checkpoint.py         # 打桩：save/load JSON
-├── reports/                  # 生成的报告
-├── checkpoints/               # 崩溃恢复点
-└── test_results/             # 测试结果（JSON 报告 + 输出日志）
+Industry-definition-agent/
+├── demo2/                 # 主交付：v5.2 完整实现
+│   ├── frost_agent.py     # 主程序（Orchestrator + 六步 + CLI）
+│   ├── models.py          # Pydantic 数据模型
+│   ├── search.py          # 并行搜索 + 补搜循环
+│   ├── methodology_loader.py
+│   ├── harness/           # SessionEventLog / Checkpoint / TokenAudit / OutputSafety
+│   ├── 方法论/            # 方法论切片（H1-H4、自检清单等）
+│   ├── tests/             # 51 项测试（全 mock，无 API key）
+│   └── requirements.txt
+├── webui/                 # Streamlit WebUI（25 项纯函数测试）
+├── demo/                  # 阶段一参考基线（配置已过时，仅作对照）
+├── 架构设计/              # 架构演进文档（v1→v5.2）、B1-2 补搜方案（v1.0→v1.4）
+├── 开发日志/              # 迭代决策与根因分析
+├── 说明文档/  kimi产出的文档/  trae的建议/
+├── CHANGELOG.md
+├── LICENSE                # 双许可：代码 MIT + 方法论 CC BY-NC 4.0
+└── .github/workflows/     # CI：demo2 + webui 测试
 ```
+
+## 已知边界
+
+- **约 84% 的残留缺口属结构性不可达**（★★★★☆ 定性，单人分类）：Tavily 提供的是片段级而非全文级信息，官方全文/一手文件/公开渠道难被索引时，多轮补搜只能把缺口定位到精确坐标、无法直接补全。详见 `架构设计/B1-2补搜迭代方案-v1.4.md` §13。
+- **阶段三方向**：接入非碎片化搜索源（官方标准平台 / SEC / 学术库）以改变缺口结构。
+
+## 实测数据（2026-08，★★★★★ 一手实测）
+
+> **成本口径说明**：以下成本为 LLM 端点迁移前的**硅基流动（SiliconFlow）时期**（2026-06 定价）实测，DeepSeek 官方端点迁移后成本未复测。随仓库附带的 15 个 trace 即这些实测运行数据，其审计报表含当时端点价目烙印。
+
+- 15 个实验 trace（三阶段：影子 MAX=3 / 赋权 MAX=3 / 赋权 MAX=5）
+- 成本约 ¥0.21–0.26 / 行业（当时端点，TokenAudit 实测）
+- Step 5 自检 pass 10/10
+- 测试基线：demo2 51 + webui 25 全绿
 
 ## 测试
 
-项目内置 `frost-test-runner` 智能体，可批量测试多个行业并生成测试报告。在 Trae 中输入 `@frost-test-runner` 即可调用。
+```bash
+cd demo2 && python3 -m pytest tests/ -q   # 51 passed
+cd webui && python3 -m pytest tests/ -q   # 25 passed
+```
+
+全部 mock 化，无需 API key，可在 CI 中无密钥运行。
+
+## 许可证
+
+双许可，见 [LICENSE](LICENSE)：
+
+- **代码**（demo2/、webui/ 下 `*.py` 及配置）：**MIT License**
+- **方法论/过程文档**（`demo2/方法论/`、`demo/方法论/`、`方法论-v2.md`、`架构设计/`、`开发日志/`、`说明文档/`、`kimi产出的文档/`、`trae的建议/`、`research/` 等）：**CC BY-NC 4.0**（非商用，需署名）

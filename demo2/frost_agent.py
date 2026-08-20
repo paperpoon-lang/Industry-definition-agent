@@ -76,8 +76,8 @@ from harness.output_safety import OutputSafety  # v5.2 新增
 # 配置常量
 # ============================================================
 
-SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
-SILICONFLOW_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
+DEFAULT_LLM_BASE_URL = "https://api.deepseek.com/v1"
+DEFAULT_LLM_MODEL = "deepseek-v4-pro"
 
 # Step 4 max_tokens：P0-1 实测推荐值 10000
 # v5.2 P0-4 修正：默认值从 16000 改为 10000（阶段一收尾二分查找实测推荐值）
@@ -205,8 +205,8 @@ def get_llm_config() -> dict[str, str]:
     """从环境变量读取 LLM API 配置。"""
     return {
         "api_key": os.getenv("LLM_API_KEY", ""),
-        "base_url": os.getenv("LLM_BASE_URL", SILICONFLOW_BASE_URL),
-        "model": os.getenv("LLM_MODEL", SILICONFLOW_MODEL),
+        "base_url": os.getenv("LLM_BASE_URL", DEFAULT_LLM_BASE_URL),
+        "model": os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL),
     }
 
 
@@ -1215,7 +1215,7 @@ async def run(industry_name: str, force_resume: bool = False) -> str:
     print(f"行业定义 Agent v5.2 (阶段二 A 组)")
     print(f"行业: {industry_name}")
     print(f"trace_id: {trace_id}")
-    print(f"模式: {'Mock (LLM+搜索均为预设)' if mock else 'API (硅基流动 DeepSeek-V4-Pro)'}")
+    print(f"模式: {'Mock (LLM+搜索均为预设)' if mock else 'API (DeepSeek-V4-Pro)'}")
     print(f"{'='*60}\n")
 
     # ---- 3. 确定已完成的步骤（支持 checkpoint 恢复） ----

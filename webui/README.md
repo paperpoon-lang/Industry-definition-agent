@@ -8,7 +8,7 @@
 ## 安装（一次性）
 
 ```bash
-cd /Users/paper/trae_project/行业定义agent/webui
+cd webui
 uv venv .venv-ui --python 3.12
 uv pip install -r ../demo2/requirements.txt -r requirements-ui.txt
 ```
@@ -16,7 +16,7 @@ uv pip install -r ../demo2/requirements.txt -r requirements-ui.txt
 ## 启动
 
 ```bash
-cd /Users/paper/trae_project/行业定义agent/webui
+cd webui
 source .venv-ui/bin/activate
 streamlit run app.py
 ```

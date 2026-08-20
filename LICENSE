@@ -1,0 +1,52 @@
+# Dual License Notice
+
+This repository is dual-licensed. You must choose which license applies to your use:
+
+- **Code** (all `*.py` files under `demo2/`, `webui/`, and their accompanying config/requirement files): licensed under the **MIT License**.
+- **Methodology documents** (any files under the `demo2/方法论/` and `demo/方法论/` directories, the files `demo2/方法论-v2.md` and `demo/方法论-v2.md`, `行业定义Agent开发方法论-沉淀总结-2026-08-13.md`, `说明文档/`, `架构设计/`, `开发日志/`, `kimi产出的文档/`, `trae的建议/`, and `research/`): licensed under **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**.
+
+All files not explicitly covered by either category above default to the MIT License.
+
+The full texts of both licenses follow.
+
+---
+
+## MIT License
+
+MIT License
+
+Copyright (c) 2026 paperpoon-lang (github.com/paperpoon-lang)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Creative Commons Attribution-NonCommercial 4.0 International
+
+Applies only to the Methodology documents identified in the Dual License Notice above.
+
+This is a human-readable summary of (and not a substitute for) the license:
+
+- You are free to **share** and **adapt** the material for any non-commercial purpose, as long as you give appropriate **credit**.
+- You may **not** use the material for commercial purposes, and you may **not** apply legal terms or technological measures that legally restrict others from doing anything the license permits.
+
+The full legal code is available at:
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+---
