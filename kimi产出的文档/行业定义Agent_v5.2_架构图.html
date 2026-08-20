@@ -1,0 +1,2447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>行业定义 Agent v5.2 — 系统架构图</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg-card: #161b22;
+    --bg-card-hover: #1c2128;
+    --border: #30363d;
+    --border-highlight: #58a6ff;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #f0f6fc;
+    --accent-blue: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-red: #f85149;
+    --accent-purple: #a371f7;
+    --accent-cyan: #39c5cf;
+    --accent-orange: #fdac54;
+    --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.02em;
+  }
+  .header-title span {
+    color: var(--accent-blue);
+  }
+  .header-meta {
+    display: flex;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+  }
+  .header-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent-blue); }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--accent-green); }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--accent-yellow); }
+  .badge-red { background: rgba(248,81,73,0.15); color: var(--accent-red); }
+  .badge-purple { background: rgba(163,113,247,0.15); color: var(--accent-purple); }
+
+  /* ===== Nav Tabs ===== */
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 40px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    position: sticky;
+    top: 97px;
+    z-index: 99;
+  }
+  .nav-tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: var(--font-sans);
+  }
+  .nav-tab:hover { color: var(--text); background: rgba(88,166,255,0.05); }
+  .nav-tab.active {
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+    background: rgba(88,166,255,0.08);
+  }
+
+  /* ===== Main Content ===== */
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 40px 60px;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== Section Title ===== */
+  .section-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title .icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+
+  /* ===== Cards ===== */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    transition: all 0.2s;
+  }
+  .card:hover {
+    border-color: var(--border-highlight);
+    background: var(--bg-card-hover);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+  }
+  .card-body {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .card-body p { margin-bottom: 8px; }
+  .card-body p:last-child { margin-bottom: 0; }
+
+  /* ===== Grid Layouts ===== */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+
+  @media (max-width: 1100px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-5 { grid-template-columns: repeat(3, 1fr); }
+    .grid-6 { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .grid-2, .grid-3, .grid-4, .grid-5, .grid-6 { grid-template-columns: 1fr; }
+    .main { padding: 20px 16px; }
+    .header { padding: 20px 16px; }
+    .nav-tabs { padding: 0 16px; }
+  }
+
+  /* ===== Pipeline Steps ===== */
+  .pipeline-container {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .pipeline-step {
+    flex: 1;
+    min-width: 160px;
+    position: relative;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-right: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pipeline-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipeline-step:last-child { border-radius: 0 10px 10px 0; border-right: 1px solid var(--border); }
+  .pipeline-step:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-highlight);
+  }
+  .pipeline-step.active-step {
+    background: rgba(88,166,255,0.08);
+    border-color: var(--accent-blue);
+  }
+  .pipeline-step.active-step + .pipeline-step {
+    border-left-color: var(--accent-blue);
+  }
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    margin-bottom: 4px;
+  }
+  .step-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+  .step-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .step-arrow {
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    z-index: 2;
+  }
+  .pipeline-step:last-child .step-arrow { display: none; }
+
+  /* ===== Step Detail Panel ===== */
+  .step-detail {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 16px;
+    display: none;
+  }
+  .step-detail.show { display: block; animation: fadeIn 0.3s ease; }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 16px;
+  }
+  .detail-block {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .detail-block-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  .detail-block ul {
+    list-style: none;
+    font-size: 0.85rem;
+  }
+  .detail-block ul li {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .detail-block ul li:last-child { border-bottom: none; }
+  .detail-block code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: rgba(88,166,255,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent-blue);
+  }
+
+  /* ===== Context Builder Layers ===== */
+  .layer-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 20px 0;
+  }
+  .layer {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--bg-card);
+    transition: all 0.2s;
+  }
+  .layer:first-child { border-radius: 10px 10px 0 0; }
+  .layer:last-child { border-radius: 0 0 10px 10px; border-bottom: 1px solid var(--border); }
+  .layer:hover { background: var(--bg-card-hover); }
+  .layer-label {
+    width: 140px;
+    min-width: 140px;
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: rgba(0,0,0,0.15);
+  }
+  .layer-num {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent-blue);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .layer-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .layer-v4 {
+    font-size: 0.7rem;
+    color: var(--accent-green);
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .layer-content {
+    flex: 1;
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+  .layer-content code {
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  .layer-separator {
+    text-align: center;
+    padding: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  /* ===== Evaluator Dimensions ===== */
+  .eval-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .eval-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .eval-card:hover {
+    border-color: var(--accent-purple);
+    transform: translateY(-2px);
+  }
+  .eval-id {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+    margin-bottom: 8px;
+  }
+  .eval-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+  }
+  .eval-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ===== Data Model ===== */
+  .model-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .model-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .model-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(88,166,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .model-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-bright);
+  }
+  .model-file {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+  .field-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .field-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .field-name {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-weight: 500;
+  }
+  .field-type {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .field-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  /* ===== File Tree ===== */
+  .file-tree {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 2;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .tree-dir { color: var(--accent-blue); font-weight: 600; }
+  .tree-file { color: var(--text); }
+  .tree-file.py { color: var(--accent-yellow); }
+  .tree-file.md { color: var(--accent-green); }
+  .tree-comment { color: var(--text-dim); }
+  .tree-line { display: flex; align-items: center; gap: 8px; }
+  .tree-indent { display: inline-block; width: 24px; }
+  .tree-badge {
+    font-size: 0.7rem;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+  }
+
+  /* ===== Decision Matrix ===== */
+  .decision-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin: 16px 0;
+  }
+  .decision-table th {
+    text-align: left;
+    padding: 12px 16px;
+    background: rgba(0,0,0,0.2);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  .decision-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .decision-table tr:hover td { background: rgba(88,166,255,0.03); }
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  .status-full { background: var(--accent-green); }
+  .status-stub { background: var(--accent-yellow); }
+  .status-skip { background: var(--accent-red); }
+
+  /* ===== Data Flow ===== */
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 20px 0;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-height: 80px;
+  }
+  .flow-node {
+    min-width: 160px;
+    max-width: 220px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .flow-node .node-title { color: var(--text-bright); font-weight: 600; }
+  .flow-node .node-desc { color: var(--text-dim); font-size: 0.75rem; margin-top: 4px; }
+  .flow-arrow-h {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, var(--border), var(--accent-blue), var(--border));
+    position: relative;
+    min-width: 40px;
+  }
+  .flow-arrow-h::after {
+    content: '▶';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-blue);
+    font-size: 0.7rem;
+  }
+  .flow-arrow-v {
+    width: 2px;
+    height: 30px;
+    background: var(--border);
+    margin-left: 80px;
+    position: relative;
+  }
+  .flow-arrow-v::after {
+    content: '▼';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-dim);
+    font-size: 0.7rem;
+  }
+  .flow-label {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 0 6px;
+  }
+
+  /* ===== Cost Table ===== */
+  .cost-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .cost-table th, .cost-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .cost-table th {
+    background: rgba(0,0,0,0.2);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+  }
+  .cost-table tr:hover td { background: rgba(88,166,255,0.03); }
+  .cost-table td:last-child, .cost-table th:last-child { text-align: right; }
+  .cost-total { font-weight: 700; color: var(--accent-green); }
+
+  /* ===== Misc ===== */
+  .highlight-box {
+    background: rgba(88,166,255,0.06);
+    border-left: 3px solid var(--accent-blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  .warning-box {
+    background: rgba(210,153,34,0.06);
+    border-left: 3px solid var(--accent-yellow);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  .danger-box {
+    background: rgba(248,81,73,0.06);
+    border-left: 3px solid var(--accent-red);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--text);
+    margin: 12px 0;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .fn { color: #d2a8ff; }
+  .code-block .cm { color: #8b949e; }
+  .code-block .num { color: #79c0ff; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-right: 4px;
+  }
+  .tag-blue { background: rgba(88,166,255,0.12); color: var(--accent-blue); }
+  .tag-green { background: rgba(63,185,80,0.12); color: var(--accent-green); }
+  .tag-yellow { background: rgba(210,153,34,0.12); color: var(--accent-yellow); }
+  .tag-red { background: rgba(248,81,73,0.12); color: var(--accent-red); }
+  .tag-purple { background: rgba(163,113,247,0.12); color: var(--accent-purple); }
+  .tag-cyan { background: rgba(57,197,207,0.12); color: var(--accent-cyan); }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ===== Architecture Overview ===== */
+  .arch-overview {
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 20px;
+    align-items: start;
+  }
+  .arch-col { display: flex; flex-direction: column; gap: 12px; }
+  .arch-center {
+    background: var(--bg-card);
+    border: 2px solid var(--accent-blue);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+  .arch-center-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+  }
+  .arch-center-desc {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .arch-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+  .arch-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.85rem;
+  }
+  .arch-box-title {
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+  }
+  .arch-box-desc {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 1100px) {
+    .arch-overview { grid-template-columns: 1fr; }
+    .arch-connector { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-title">行业定义 Agent <span>v5.2</span> 系统架构图</div>
+      <div style="margin-top:6px; font-size:0.85rem; color:var(--text-dim);">Demo 第二阶段 · 基础设施加固 + 搜索补搜循环 · 七项升级</div>
+    </div>
+    <div class="header-meta">
+      <span><span class="badge badge-blue">v5.2</span> 版本</span>
+      <span><span class="badge badge-green">~2,458 行</span> Python</span>
+      <span><span class="badge badge-yellow">6 步管线</span> 线性执行</span>
+      <span><span class="badge badge-purple">4 层上下文</span> 组装</span>
+      <span><span class="badge badge-red">C1-C5</span> 自检</span>
+      <span><span class="badge badge-green">7 项升级</span> 基础设施</span>
+      <span><span class="badge badge-purple">quality_flags</span> 跨步骤传递</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Nav Tabs ===== -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" data-tab="overview">总体架构</button>
+  <button class="nav-tab" data-tab="pipeline">六步管线</button>
+  <button class="nav-tab" data-tab="context">Context Builder</button>
+  <button class="nav-tab" data-tab="evaluator">Independent Evaluator</button>
+  <button class="nav-tab" data-tab="models">数据模型</button>
+  <button class="nav-tab" data-tab="dataflow">数据流</button>
+  <button class="nav-tab" data-tab="files">文件结构</button>
+  <button class="nav-tab" data-tab="harness">Harness 控制面</button>
+  <button class="nav-tab" data-tab="decisions">设计决策</button>
+  <button class="nav-tab" data-tab="cost">成本估算</button>
+</nav>
+
+<!-- ===== Main ===== -->
+<main class="main">
+
+<!-- ==================== TAB: Overview ==================== -->
+<div class="tab-panel active" id="tab-overview">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(88,166,255,0.1);">🏗️</div>
+    总体架构鸟瞰
+  </div>
+  <div class="section-desc">v5.2 三层架构：Orchestrator 居中调度，六步管线线性执行，Harness 控制面提供 7 项基础设施升级，Evaluator 独立审查</div>
+
+  <div class="arch-overview">
+    <!-- Left Column: Inputs + Harness + Environment -->
+    <div class="arch-col">
+      <div class="arch-box">
+        <div class="arch-box-title">📥 输入层</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-cyan">CLI 参数</span> 行业名称<br>
+          <span class="tag tag-cyan">--mock</span> Mock 模式<br>
+          <span class="tag tag-cyan">--resume</span> 断点恢复<br>
+          <span class="tag tag-cyan">.env</span> API 密钥配置
+        </div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">🔍 外部数据源</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-blue">Tavily Search</span> 并行搜索<br>
+          <span class="tag tag-blue">SiliconFlow</span> DeepSeek-V4-Pro<br>
+          <span class="tag tag-blue">方法论/</span> 拆分模块 + <code>_meta.yaml</code>
+        </div>
+      </div>
+      <div class="arch-box" style="border-color:var(--accent-green);">
+        <div class="arch-box-title">🛡️ Harness 控制面</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-green">quality_flags</span> 跨步骤异常传递<br>
+          <span class="tag tag-green">Session Log</span> JSONL + trace_id<br>
+          <span class="tag tag-green">Token Audit</span> 持久化报表<br>
+          <span class="tag tag-green">Checkpoint</span> 多版本 + 过期清理<br>
+          <span class="tag tag-green">Output Safety</span> UTC + 版本号<br>
+          <span class="tag tag-green">methodology/</span> 拆分模块<br>
+          <span class="tag tag-green">补搜循环</span> FM 审查 + 补搜
+        </div>
+      </div>
+      <div class="arch-box" style="border-color:var(--accent-cyan);">
+        <div class="arch-box-title">🌍 Environment 执行边界</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-cyan">Credential Vault</span> .env<br>
+          <span class="tag tag-cyan">methodology/</span> 目录 + 版本一致性检查
+        </div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">💾 持久化</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-green">checkpoints/</span> JSON 多版本<br>
+          <span class="tag tag-green">reports/</span> Markdown 安全保存<br>
+          <span class="tag tag-green">logs/</span> JSONL 事件 + Token 审计
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Orchestrator + Pipeline -->
+    <div class="arch-col" style="justify-content:center;">
+      <div class="arch-center">
+        <div class="arch-center-title">🎛️ Orchestrator</div>
+        <div class="arch-center-desc">
+          <code>frost_agent.py</code> ~1,301 行<br><br>
+          生成 <code>trace_id</code> → 初始化 v5 组件<br>
+          → 六步管线 → Step 5 判断<br>
+          → 注入警告（若 fail）+ <code>quality_flags</code> 汇总<br>
+          → 输出报告 + CLI Token 成本摘要<br><br>
+          每步：Context Builder 四层组装 → LLM 调用<br>
+          → 结果校验 → 记录 <code>quality_flags</code> → 写 Checkpoint<br>
+          → 写 Session Event Log（JSONL，带 <code>trace_id</code>）
+        </div>
+      </div>
+      <div class="arch-connector">⬇️ 调度六步管线</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+        <div class="arch-box" style="text-align:center; padding:10px; border-color:var(--accent-green);">
+          <div style="font-size:0.75rem; color:var(--accent-green); font-weight:700;">Step 1</div>
+          <div style="font-size:0.8rem;">信息收集</div>
+          <div style="font-size:0.7rem; color:var(--accent-green);">+ 搜索补搜循环</div>
+        </div>
+        <div class="arch-box" style="text-align:center; padding:10px;">
+          <div style="font-size:0.75rem; color:var(--accent-blue); font-weight:700;">Step 2</div>
+          <div style="font-size:0.8rem;">维度筛选</div>
+        </div>
+        <div class="arch-box" style="text-align:center; padding:10px;">
+          <div style="font-size:0.75rem; color:var(--accent-blue); font-weight:700;">Step 3</div>
+          <div style="font-size:0.8rem;">结构决策</div>
+        </div>
+        <div class="arch-box" style="text-align:center; padding:10px;">
+          <div style="font-size:0.75rem; color:var(--accent-blue); font-weight:700;">Step 4</div>
+          <div style="font-size:0.8rem;">内容生成</div>
+        </div>
+        <div class="arch-box" style="text-align:center; padding:10px; border-color:var(--accent-purple);">
+          <div style="font-size:0.75rem; color:var(--accent-purple); font-weight:700;">Step 5</div>
+          <div style="font-size:0.8rem;">自检</div>
+        </div>
+        <div class="arch-box" style="text-align:center; padding:10px;">
+          <div style="font-size:0.75rem; color:var(--accent-green); font-weight:700;">Step 6</div>
+          <div style="font-size:0.8rem;">输出</div>
+          <div style="font-size:0.7rem; color:var(--accent-green);">+ quality_flags 汇总</div>
+        </div>
+      </div>
+      <div class="arch-connector">⬇️</div>
+      <div class="arch-box" style="border-color:var(--accent-green); text-align:center;">
+        <div class="arch-box-title">🛡️ Harness 控制面 — 7 项基础设施</div>
+        <div class="arch-box-desc" style="font-size:0.75rem;">
+          quality_flags · Session Event Log · Token Audit · Checkpoint · Output Safety · methodology/ · 搜索补搜循环
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Core Components -->
+    <div class="arch-col">
+      <div class="arch-box" style="border-color:var(--accent-cyan);">
+        <div class="arch-box-title">🧱 Context Builder</div>
+        <div class="arch-box-desc">
+          <code>context_builder.py</code> ~119 行<br>
+          四层上下文组装器<br>
+          <span class="tag tag-cyan">L1</span> 静态身份<br>
+          <span class="tag tag-cyan">L2</span> 方法论切片<br>
+          <span class="tag tag-green">L3</span> 任务指令 <span style="color:var(--accent-green);font-size:0.7rem;">v4 新增</span><br>
+          <span class="tag tag-cyan">L4</span> 前序摘要
+        </div>
+      </div>
+      <div class="arch-box" style="border-color:var(--accent-purple);">
+        <div class="arch-box-title">🔎 Independent Evaluator</div>
+        <div class="arch-box-desc">
+          <code>evaluator.py</code> ~152 行<br>
+          独立 LLM 调用，不同 prompt<br>
+          不接收 Step 1-4 reasoning<br>
+          C1-C5 五维审查清单<br>
+          PASS/FAIL + 具体问题<br>
+          <span style="color:var(--accent-purple);font-size:0.7rem;">v5: fixes_required 设计笔记预留</span>
+        </div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">📚 Methodology Loader</div>
+        <div class="arch-box-desc">
+          <code>methodology_loader.py</code> ~287 行<br>
+          SLICE_MAP 按 step_id 切片<br>
+          拆分模块优先加载 + <code>_meta.yaml</code><br>
+          空切片降级 → 全量回退<br>
+          fallback 版本一致性检查<br>
+          <span class="tag tag-green">v5 升级</span>
+        </div>
+      </div>
+      <div class="arch-box" style="border-color:var(--accent-green);">
+        <div class="arch-box-title">🛡️ Harness 控制面（7 组件）</div>
+        <div class="arch-box-desc">
+          <span class="tag tag-green">quality_flags</span> Pydantic 模型约束<br>
+          <span class="tag tag-green">Session Log</span> JSONL + trace_id<br>
+          <span class="tag tag-green">Token Audit</span> 持久化报表<br>
+          <span class="tag tag-green">Checkpoint</span> 多版本 + 过期清理<br>
+          <span class="tag tag-green">Output Safety</span> UTC + 版本号<br>
+          <span class="tag tag-green">methodology/</span> 拆分模块<br>
+          <span class="tag tag-green">补搜循环</span> FM 审查 + 最多 2 轮<br>
+          <span class="tag tag-green">v5 升级</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(63,185,80,0.1);">📐</div>
+    核心设计原则
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">跑一次就出高质量报告</div>
+      <div class="card-body">
+        Demo 不是 7×24 生产系统。对报告质量有直接影响的组件完整实现，基础设施从打桩升级到可用，v5 新增 7 项基础设施升级。
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">严格线性，不做 E-O 闭环</div>
+      <div class="card-body">
+        Step 5 自检失败时<strong>只注入警告标记</strong>，不自动重跑 Step 4。遵守项目 Brief 约束 #3："不通过则标记，不允许直接输出"。
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">quality_flags 跨步骤异常传递</div>
+      <div class="card-body">
+        <strong>v5.2 新增第三条原则。</strong>降级信息不消失在状态对象中，通过 Pydantic 模型约束，按 high/medium/low 严重度分组汇总到报告尾部。
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>v5.2 关键改进（相比 v4）：</strong> quality_flags 跨步骤异常传递 | Session Event Log → JSONL | Token Audit → 持久化 | Checkpoint → 多版本 + 过期清理 | Output Safety UTC 时间戳 | methodology 拆分 | Step 1 搜索补搜循环
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Pipeline ==================== -->
+<div class="tab-panel" id="tab-pipeline">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(88,166,255,0.1);">🔄</div>
+    六步管线流程
+  </div>
+  <div class="section-desc">严格线性执行，无循环。Step 1 内部新增搜索补搜循环（不改管线架构）。点击步骤查看详细输入、处理逻辑和输出格式。</div>
+
+  <div class="pipeline-container">
+    <div class="pipeline-step active-step" data-step="1">
+      <div class="step-num">STEP 01</div>
+      <div class="step-name">信息收集</div>
+      <div class="step-desc">并行搜索 + FM 审查补搜循环 + LLM 总结</div>
+      <div class="step-arrow">→</div>
+    </div>
+    <div class="pipeline-step" data-step="2">
+      <div class="step-num">STEP 02</div>
+      <div class="step-name">维度筛选</div>
+      <div class="step-desc">H1-H4 原则应用</div>
+      <div class="step-arrow">→</div>
+    </div>
+    <div class="pipeline-step" data-step="3">
+      <div class="step-num">STEP 03</div>
+      <div class="step-name">结构决策</div>
+      <div class="step-desc">报告章节设计</div>
+      <div class="step-arrow">→</div>
+    </div>
+    <div class="pipeline-step" data-step="4">
+      <div class="step-num">STEP 04</div>
+      <div class="step-name">内容生成</div>
+      <div class="step-desc">撰写完整报告</div>
+      <div class="step-arrow">→</div>
+    </div>
+    <div class="pipeline-step" data-step="5" style="border-color:var(--accent-purple);">
+      <div class="step-num" style="color:var(--accent-purple);">STEP 05</div>
+      <div class="step-name">自检</div>
+      <div class="step-desc">Independent Evaluator</div>
+      <div class="step-arrow">→</div>
+    </div>
+    <div class="pipeline-step" data-step="6">
+      <div class="step-num" style="color:var(--accent-green);">STEP 06</div>
+      <div class="step-name">输出</div>
+      <div class="step-desc">组装 + 警告注入 + quality_flags 汇总</div>
+      <div class="step-arrow" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Step 1 Detail -->
+  <div class="step-detail show" id="detail-1">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-blue">STEP 01</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">信息收集 — 并行搜索 + FM 审查补搜循环 + LLM 总结</span>
+      <span class="badge badge-green">v5.2 新增</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>行业名称（CLI 参数）</li>
+          <li>Context Builder 四层上下文</li>
+          <li>Tavily API Key（环境变量）</li>
+          <li>方法论"信息优先级"章节（FM 审查用）</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>3 个静态模板搜索（asyncio.gather）</li>
+          <li>FM 审查搜索结果（基于方法论"信息优先级"）</li>
+          <li>最多 2 轮补搜（每轮 1-2 个 query）</li>
+          <li>补搜后仍有缺口 → 记录 <code>data_gaps_remaining</code></li>
+          <li>LLM 总结为结构化 JSON</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">输出格式（JSON）</div>
+        <ul>
+          <li><code>summary</code> — 行业概述</li>
+          <li><code>official_definitions</code> — 官方定义</li>
+          <li><code>key_regulations</code> — 关键政策</li>
+          <li><code>structural_factors</code> — 结构性因素</li>
+          <li><code>adjacent_industries</code> — 相邻行业</li>
+          <li><code>data_gaps</code> — 数据缺口</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">v5.2 关键约束</div>
+        <ul>
+          <li>搜索补搜循环最多 2 轮，总共 ≤5 个 query</li>
+          <li>不改 <code>search.py</code> 接口</li>
+          <li>FM 审查基于方法论信息优先级</li>
+          <li>Step 1 timeout: 120s → 180s</li>
+        </ul>
+      </div>
+    </div>
+    <div class="code-block">
+<span class="cm"># FM_REVIEW_PROMPT（v5.2 新增）— FM 审查搜索结果</span>
+<span class="str">"你是行业定义信息完整性审查员。你的任务是判断当前搜索结果是否覆盖了行业定义所需的关键信息维度。</span>
+<span class="str">## 行业</span>
+<span class="str">{industry_name}</span>
+<span class="str">## 信息优先级（来自方法论）</span>
+<span class="str">{methodology_info_priority}</span>
+<span class="str">## 当前搜索结果摘要</span>
+<span class="str">{search_results_summary}</span>
+<span class="str">## 你的任务</span>
+<span class="str">1. 对照"信息优先级"，判断当前搜索结果是否有明显缺失的维度</span>
+<span class="str">2. 如果有缺失，列出具体缺失的维度（data_gaps）</span>
+<span class="str">3. 为每个缺失维度生成 1 个补搜关键词（suggested_queries）</span>
+<span class="str">## 输出格式（JSON）</span>
+<span class="str">{ "data_gaps": [...], "suggested_queries": [...] }"</span>
+    </div>
+    <div class="code-block" style="margin-top:12px;">
+<span class="cm"># 搜索查询模板（3 个静态模板 + 最多 2 个补搜 query）</span>
+SEARCH_QUERIES = [
+    <span class="str">"{industry} 行业定义 官方定义 标准"</span>,
+    <span class="str">"{industry} 政策 监管 产业链"</span>,
+    <span class="str">"{industry} 边界 与相邻行业区分"</span>,
+]
+<span class="cm"># 补搜 query 由 FM 审查基于方法论信息优先级动态生成</span>
+    </div>
+  </div>
+
+  <!-- Step 2 Detail -->
+  <div class="step-detail" id="detail-2">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-blue">STEP 02</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">维度筛选 — H1-H4 原则应用</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>Step 1 的信息收集结果</li>
+          <li>Context Builder 四层上下文</li>
+          <li>方法论 §3.1 维度筛选原则</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>应用 H1：独特形态 / 被极端放大</li>
+          <li>应用 H2：独立侧（≥2 个）</li>
+          <li>应用 H3：经营结果传导</li>
+          <li>应用 H4：数据可获得性</li>
+          <li>明确记录：选了什么、放弃了什么、为什么</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">输出格式（JSON）</div>
+        <ul>
+          <li><code>selected_dimensions</code> — 选中维度列表</li>
+          <li><code>abandoned_dimensions</code> — 放弃维度及原因</li>
+          <li><code>reasoning</code> — 筛选推理过程</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">验收标准</div>
+        <ul>
+          <li>覆盖 ≥ 2 个独立侧</li>
+          <li>每个维度有经营结果传导</li>
+          <li>放弃维度必须记录原因</li>
+        </ul>
+      </div>
+    </div>
+    <div class="code-block">
+<span class="cm"># H1-H4 维度筛选原则</span>
+H1: 独特形态 / 被极端放大 → 决定行业"长什么样"
+H2: 独立侧 ≥2 个 → 技术/制度/需求/成本
+H3: 经营结果传导 → 每个维度影响商业决策
+H4: 数据可获得性 → 合法筛选标准
+    </div>
+  </div>
+
+  <!-- Step 3 Detail -->
+  <div class="step-detail" id="detail-3">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-blue">STEP 03</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">结构决策 — 报告章节设计</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>Step 2 的维度筛选结果</li>
+          <li>Context Builder 四层上下文</li>
+          <li>方法论 §3.4 报告结构启发式</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>每章对应 Step 2 至少一个维度</li>
+          <li>严格禁止竞争格局/市场规模/投资建议章节</li>
+          <li>方法论附注章解释维度取舍</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">输出格式（JSON）</div>
+        <ul>
+          <li><code>chapters</code> — 章节列表（title, dimensions, summary）</li>
+          <li><code>reasoning</code> — 结构设计推理</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">典型结构</div>
+        <ul>
+          <li>一、行业核心定义</li>
+          <li>二、行业边界划定</li>
+          <li>三、结构性特征分析</li>
+          <li>四、制度与监管环境</li>
+          <li>五、方法论附注</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4 Detail -->
+  <div class="step-detail" id="detail-4">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-blue">STEP 04</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">内容生成 — 撰写完整报告</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>Step 3 的章节结构</li>
+          <li>Step 1 的信息收集结果</li>
+          <li>Context Builder 四层上下文</li>
+          <li>方法论 Hard Rules + 推理展示要求</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>直接输出 Markdown（从 # 标题开始）</li>
+          <li>剥离开场白（_strip_preamble）</li>
+          <li>每个关键判断附带推理链和置信度</li>
+          <li>所有数据标注来源和可信度</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">严格禁止内容</div>
+        <ul>
+          <li>❌ 企业排名 / 市场份额</li>
+          <li>❌ 竞争格局分析</li>
+          <li>❌ 市场规模预测</li>
+          <li>❌ 投资建议</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">输出格式</div>
+        <ul>
+          <li>Markdown 完整报告</li>
+          <li>存储于 <code>step.result.report_text</code></li>
+          <li>最长步骤（15-35 秒）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="warning-box">
+      <strong>瓶颈步骤：</strong>Step 4 是端到端最大瓶颈，长报告可能需要 90 秒。建议演示时预先运行保存结果。
+    </div>
+  </div>
+
+  <!-- Step 5 Detail -->
+  <div class="step-detail" id="detail-5">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-purple">STEP 05</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">自检 — Independent Evaluator</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>Step 4 生成的报告文本（仅最终文本）</li>
+          <li>行业名称</li>
+          <li><strong>不接收</strong> Step 1-4 的 reasoning</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>独立 LLM 调用（不同 prompt）</li>
+          <li>C1-C5 逐项审查</li>
+          <li>每个维度 PASS/FAIL + 具体问题</li>
+          <li>总体：pass / fail_with_fixes</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">输出格式（JSON）</div>
+        <ul>
+          <li><code>overall</code> — pass / fail_with_fixes</li>
+          <li><code>evaluator_confidence</code> — high/medium/low</li>
+          <li><code>dimensions.C1-C5</code> — status + detail</li>
+          <li><code>failed_dimensions</code> — 未通过列表</li>
+          <li><code>issues</code> — 具体问题</li>
+          <li><code>fixes_required</code> — 修复建议（v5 设计笔记预留）</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">v5 新增</div>
+        <ul>
+          <li>Step 5 产生降级时记录 <code>quality_flags</code></li>
+          <li><code>fixes_required</code> 设计笔记为阶段三 Evaluator-Optimizer 闭环预留接口</li>
+        </ul>
+      </div>
+    </div>
+    <div class="danger-box">
+      <strong>设计意图：</strong>把"干活"和"挑刺"彻底分开。Evaluator 是独立的审查员，倾向于发现问题而非确认一切正常。这是解决 Self-Evaluation Bias 的核心机制。
+    </div>
+  </div>
+
+  <!-- Step 6 Detail -->
+  <div class="step-detail" id="detail-6">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <span class="badge badge-green">STEP 06</span>
+      <span style="font-size:1.1rem; font-weight:700; color:var(--text-bright);">输出 — 组装最终报告</span>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-block">
+        <div class="detail-block-title">输入</div>
+        <ul>
+          <li>Step 4 报告正文</li>
+          <li>Step 5 自检结果（若失败）</li>
+          <li>各步骤 <code>quality_flags</code> 降级记录</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">处理逻辑</div>
+        <ul>
+          <li>自检通过 → 直接输出报告</li>
+          <li>自检失败 → 头部注入 ⚠️ 警告</li>
+          <li>尾部注入 <code>quality_flags</code> 汇总（按 high/medium/low 分组）</li>
+          <li>方法论附注（R5 强制要求）</li>
+          <li>安全保存（UTC 时间戳 + 版本号）</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">报告尾部结构（v5.1）</div>
+        <ul>
+          <li>报告正文</li>
+          <li>→ 自检未通过（如有，最高优先级）</li>
+          <li>→ 降级记录（quality_flags，如有，次高优先级）</li>
+          <li>→ 方法论附注（最后）</li>
+        </ul>
+      </div>
+      <div class="detail-block">
+        <div class="detail-block-title">v5 变更</div>
+        <ul>
+          <li>移除 <code>尾部附加 Token 统计</code>（Token 统计移到独立 TokenAudit）</li>
+          <li>新增 <code>quality_flags</code> 汇总注入</li>
+          <li>Output Safety：UTC 时间戳 + 版本号</li>
+        </ul>
+      </div>
+    </div>
+    <div class="code-block">
+<span class="cm"># 报告尾部结构（v5.1）</span>
+<span class="cm">[报告正文]</span>
+<span class="cm">---</span>
+<span class="cm">## ⚠️ 自检未通过（如有，最高优先级）</span>
+<span class="cm">---</span>
+<span class="cm">## ⚠️ 降级记录（quality_flags，如有，次高优先级）</span>
+<span class="cm">### 高严重度</span>
+<span class="cm">### 中严重度</span>
+<span class="cm">### 低严重度</span>
+<span class="cm">---</span>
+<span class="cm">## 方法论附注（R5 强制要求，最后）</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Context Builder ==================== -->
+<div class="tab-panel" id="tab-context">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(57,197,207,0.1);">🧱</div>
+    Context Builder — 四层上下文组装器
+  </div>
+  <div class="section-desc">v4 核心改进：新增"任务指令层"（Layer 3）。v5 继承四层结构，不变。</div>
+
+  <div class="layer-stack">
+    <div class="layer">
+      <div class="layer-label">
+        <div class="layer-num">LAYER 1</div>
+        <div class="layer-name">静态身份</div>
+      </div>
+      <div class="layer-content">
+        <code>_static_identity()</code> — 固定不变的系统角色定义<br>
+        "你是行业定义分析引擎。你的任务是：输入行业名称，产出符合行业定义方法论标准的行业定义报告。报告不包含竞争排名、市场规模预测、投资建议。"
+      </div>
+    </div>
+    <div class="layer-separator">⬇️ 分隔线 <code>
+
+---
+
+</code></div>
+    <div class="layer">
+      <div class="layer-label">
+        <div class="layer-num">LAYER 2</div>
+        <div class="layer-name">方法论切片</div>
+      </div>
+      <div class="layer-content">
+        <code>_methodology_slice(step_id)</code> — 按步骤动态加载相关方法论章节<br>
+        通过 <code>SLICE_MAP</code> 将 step_id 映射到关键词，按 <code>## / ###</code> 标题切分方法论文档，子串匹配后拼接。空切片或总长度 &lt;100 字符时<strong>降级回全量方法论</strong>。<br>
+        v5 升级：优先从拆分模块加载，<code>_meta.yaml</code> 声明模块清单。
+      </div>
+    </div>
+    <div class="layer-separator">⬇️ 分隔线 <code>
+
+---
+
+</code></div>
+    <div class="layer" style="border-color:var(--accent-green);">
+      <div class="layer-label" style="border-color:var(--accent-green); background:rgba(63,185,80,0.08);">
+        <div class="layer-num" style="color:var(--accent-green);">LAYER 3</div>
+        <div class="layer-name">任务指令</div>
+        <div class="layer-v4">★ v4 新增 · v5 继承</div>
+      </div>
+      <div class="layer-content">
+        <code>_task_directive(step_id, industry)</code> — 当前步骤的具体任务指令 + Sprint Contract 验收标准<br>
+        从 <code>STEP_TASKS</code> 字典获取模板，格式化行业名称。包含：任务描述、输出格式要求、验收标准、严格禁止内容。解决 v3 中任务指令与前序摘要混在一起的模糊问题。
+      </div>
+    </div>
+    <div class="layer-separator">⬇️ 分隔线 <code>
+
+---
+
+</code></div>
+    <div class="layer">
+      <div class="layer-label">
+        <div class="layer-num">LAYER 4</div>
+        <div class="layer-name">前序摘要</div>
+      </div>
+      <div class="layer-content">
+        <code>_previous_summary(state)</code> — 最近 3 步的结果摘要<br>
+        从 <code>state.steps[-3:]</code> 提取每步的 <code>summary</code> 或 <code>reasoning[:150]</code>，附带置信度标注。让 LLM 了解已完成的上下文，避免重复工作或矛盾输出。
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>v3 → v4 修复原因：</strong>v3 的三层组装丢失了关键的任务指令层，导致 LLM 对当前步骤的具体任务和验收标准理解模糊。v4 将 Sprint Contract 验收标准直接内嵌到每步的 task prompt 中，而非通过独立的 SprintContract 对象传递。v5 继承此设计，未改变四层结构。
+  </div>
+
+  <div class="section-title" style="margin-top:32px;">
+    <div class="icon" style="background:rgba(210,153,34,0.1);">📋</div>
+    STEP_TASKS 任务指令示例
+  </div>
+
+  <div class="two-col">
+    <div class="code-block">
+<span class="cm"># Step 1: 信息收集</span>
+<span class="str">"请搜索并整理以下行业的基础信息：{industry}。"</span>
+<span class="str">"要求：覆盖官方定义、关键政策/标准、"</span>
+<span class="str">"结构性影响因素、相邻行业。"</span>
+<span class="str">"标注信息来源和可信度（P0-P3）。"</span>
+<span class="str">"输出 JSON 格式..."</span>
+    </div>
+    <div class="code-block">
+<span class="cm"># Step 2: 维度筛选（含验收标准）</span>
+<span class="str">"基于 Step 1 的信息，对行业「{industry}」"</span>
+<span class="str">"应用 H1-H4 维度筛选原则。"</span>
+<span class="str">"选出核心维度，并明确记录："</span>
+<span class="str">"选了什么、放弃了什么、为什么。"</span>
+<span class="str">"验收标准：覆盖 ≥ 2 个独立侧，"</span>
+<span class="str">"每个维度有经营结果传导。"</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Evaluator ==================== -->
+<div class="tab-panel" id="tab-evaluator">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(163,113,247,0.1);">🔎</div>
+    Independent Evaluator — 独立评估器
+  </div>
+  <div class="section-desc">关键约束：Evaluator 只看最终报告文本，不接收 Step 1-4 的 reasoning。把"干活"和"挑刺"彻底分开。</div>
+
+  <div class="eval-grid">
+    <div class="eval-card">
+      <div class="eval-id">C1</div>
+      <div class="eval-title">区分度测试</div>
+      <div class="eval-desc">遮住行业名称，读者能否从定义本身判断出是哪个行业？</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-id">C2</div>
+      <div class="eval-title">废话过滤</div>
+      <div class="eval-desc">是否存在对任何行业都成立的通用陈述？</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-id">C3</div>
+      <div class="eval-title">结构性测试</div>
+      <div class="eval-desc">核心逻辑是否独立于短期市场数据？</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-id">C4</div>
+      <div class="eval-title">边界清晰度</div>
+      <div class="eval-desc">读者能否说清楚"什么不是这个行业"？</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-id">C5</div>
+      <div class="eval-title">推理可见</div>
+      <div class="eval-desc">每个关键判断是否有"为什么"的解释？</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(248,81,73,0.1);">⚠️</div>
+    自检失败处置（v4 关键设计）
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">❌ 不做：Evaluator-Optimizer 自动修正闭环</div>
+      </div>
+      <div class="card-body">
+        <p>改变行为契约（项目 Brief 约束 #3："不通过则标记，不允许直接输出"）。</p>
+        <p>Demo 不需要全自动修正。自动修正可能引入新的错误，且破坏"人工审查"的设计意图。</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">✅ 做：Step 5 失败时注入警告标记</div>
+      </div>
+      <div class="card-body">
+        <p>报告头部插入 <code>## ⚠️ 自检未通过</code> 区块。</p>
+        <p>列出失败维度和具体问题，附加 <strong>"请人工审查后再使用此报告"</strong> 提示。</p>
+        <p>Console 同时打印警告日志。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block" style="margin-top:20px;">
+<span class="cm"># v4 关键逻辑：失败时注入警告，不自动修正</span>
+<span class="kw">if</span> step5.result.get(<span class="str">"overall"</span>) != <span class="str">"pass"</span>:
+    failed = step5.result.get(<span class="str">"failed_dimensions"</span>, [])
+    issues = step5.result.get(<span class="str">"issues"</span>, [])
+    warning = <span class="str">"
+
+---
+
+## ⚠️ 自检未通过
+
+"</span> + ...
+    state._self_check_warning = warning
+<span class="cm"># 注意：没有重跑 step4_content_generation()</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(210,153,34,0.1);">🧪</div>
+    Mock 模式评估规则
+  </div>
+  <div class="section-desc">不调用 LLM，用关键词规则做基本检查（开发测试用）。</div>
+
+  <div class="grid-2">
+    <div class="detail-block">
+      <div class="detail-block-title">C1: 区分度</div>
+      <ul>
+        <li>检查行业名称是否在报告中出现</li>
+        <li>未出现 → FAIL</li>
+      </ul>
+    </div>
+    <div class="detail-block">
+      <div class="detail-block-title">C2: 废话过滤</div>
+      <ul>
+        <li>关键词黑名单："市场前景广阔"、"竞争日益激烈"、"具有广阔的发展空间"...</li>
+        <li>命中 → FAIL</li>
+      </ul>
+    </div>
+    <div class="detail-block">
+      <div class="detail-block-title">C4: 边界清晰度</div>
+      <ul>
+        <li>检查 "排除" / "不属于" / "边界" 关键词</li>
+        <li>均未出现 → FAIL</li>
+      </ul>
+    </div>
+    <div class="detail-block">
+      <div class="detail-block-title">C5: 推理可见</div>
+      <ul>
+        <li>检查 "因为" / "因此" / "所以" / "这意味着" / "依据" / "推理"</li>
+        <li>均未出现 → FAIL</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(163,113,247,0.1);">📝</div>
+    v5 补充：Step 5 <code>fixes_required</code> 设计笔记
+  </div>
+  <div class="section-desc">v5 只留设计笔记，不实现 Pydantic 模型。为阶段三 Evaluator-Optimizer 闭环预留接口。</div>
+
+  <div class="code-block">
+<span class="cm"># 阶段三可基于此设计升级（v5 不实现，只记录设计）：</span>
+<span class="cm"># class FixItem(BaseModel):</span>
+<span class="cm">#     dimension: str           # 如 "C4", "llm_empty_field"</span>
+<span class="cm">#     problem: str             # 问题描述</span>
+<span class="cm">#     target_step: str | None  # 建议重跑的步骤（如 "1_info_collection"）</span>
+<span class="cm">#     severity: str            # "high" / "medium" / "low"</span>
+<span class="cm">#</span>
+<span class="cm"># v5.1 补充：4 条循环规则</span>
+<span class="cm"># 规则 1（循环计数）：最多 3 轮</span>
+<span class="cm"># 规则 2（severity 阈值）：只有 high/medium 触发自动修正</span>
+<span class="cm"># 规则 3（合并规则）：同一 target_step 合并后只重跑一次</span>
+<span class="cm"># 规则 4（未收敛停止）：FixItem 列表与上轮相同则停止</span>
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Models ==================== -->
+<div class="tab-panel" id="tab-models">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(57,197,207,0.1);">🗂️</div>
+    数据模型（Pydantic）
+  </div>
+  <div class="section-desc">v5 新增：QualityFlag 模型 + severity 默认映射表。StepOutput 新增 quality_flags 字段。</div>
+
+  <div class="model-card">
+    <div class="model-card-header">
+      <div class="model-icon">📦</div>
+      <div>
+        <div class="model-name">StepOutput</div>
+        <div class="model-file">models.py — 每一步的输出（强制包含推理痕迹）</div>
+      </div>
+    </div>
+    <div class="field-list">
+      <div class="field-item">
+        <span class="field-name">step_id</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">步骤唯一标识</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">step_label</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">人类可读名称</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">reasoning</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">判断推理过程（必填）</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">confidence</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">置信度标注</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">result</span>
+        <span class="field-type">dict</span>
+        <span class="field-desc">结构化产出</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">abandoned</span>
+        <span class="field-type">list[str]</span>
+        <span class="field-desc">放弃的选择及原因</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">methodology_ref</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">引用方法论章节</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">token_usage</span>
+        <span class="field-type">dict | None</span>
+        <span class="field-desc">v4 新增：LLM token 消耗</span>
+      </div>
+      <div class="field-item" style="border:1px solid var(--accent-green); background:rgba(63,185,80,0.05);">
+        <span class="field-name">quality_flags</span>
+        <span class="field-type">list[QualityFlag]</span>
+        <span class="field-desc">v5 新增：降级标记列表</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="model-card" style="border-color:var(--accent-green);">
+    <div class="model-card-header">
+      <div class="model-icon" style="background:rgba(63,185,80,0.1);">🚩</div>
+      <div>
+        <div class="model-name">QualityFlag <span class="badge badge-green">v5 新增</span></div>
+        <div class="model-file">models.py — 跨步骤异常传递的标准化格式</div>
+      </div>
+    </div>
+    <div class="field-list">
+      <div class="field-item">
+        <span class="field-name">category</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">降级类别（预定义值）</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">field</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">受影响的字段名</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">severity</span>
+        <span class="field-type">Literal["high","medium","low"]</span>
+        <span class="field-desc">严重程度</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">detail</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">可选详细说明</span>
+      </div>
+    </div>
+    <div style="margin-top:16px; font-size:0.85rem; color:var(--text-dim);">
+      <strong>category 预定义值：</strong>llm_empty_field · search_partial_failure · json_parse_fallback · or_fallback_result · or_fallback_reasoning · timeout_retry · data_gaps_remaining（v5.2）
+    </div>
+  </div>
+
+  <div class="model-card">
+    <div class="model-card-header">
+      <div class="model-icon" style="background:rgba(163,113,247,0.1);">🌐</div>
+      <div>
+        <div class="model-name">ReportState</div>
+        <div class="model-file">models.py — 贯穿全流程的状态对象</div>
+      </div>
+    </div>
+    <div class="field-list">
+      <div class="field-item">
+        <span class="field-name">methodology_version</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">固定 "v2"</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">industry_name</span>
+        <span class="field-type">str</span>
+        <span class="field-desc">用户输入的行业名称</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">steps</span>
+        <span class="field-type">list[StepOutput]</span>
+        <span class="field-desc">已完成步骤记录</span>
+      </div>
+      <div class="field-item">
+        <span class="field-name">final_report</span>
+        <span class="field-type">str | None</span>
+        <span class="field-desc">最终报告（Step 6 后）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:32px;">
+    <div class="icon" style="background:rgba(63,185,80,0.1);">📊</div>
+    severity 默认映射表（v5.1 新增）
+  </div>
+  <div class="section-desc">允许实现者根据上下文调整 severity，但必须在 detail 中说明理由。</div>
+
+  <table class="cost-table">
+    <thead>
+      <tr>
+        <th>category</th>
+        <th>默认 severity</th>
+        <th>判定规则</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>llm_empty_field</code></td>
+        <td>medium</td>
+        <td>字段为空，但其他字段可能足够</td>
+      </tr>
+      <tr>
+        <td><code>search_partial_failure</code></td>
+        <td>按失败比例</td>
+        <td>1/3 失败→medium；2/3 失败→high；全部失败→high</td>
+      </tr>
+      <tr>
+        <td><code>json_parse_fallback</code></td>
+        <td>medium</td>
+        <td>解析方式降级，数据完整性可能受损</td>
+      </tr>
+      <tr>
+        <td><code>or_fallback_result</code></td>
+        <td><strong>high</strong></td>
+        <td>result 字段被占位符替代，属于数据污染</td>
+      </tr>
+      <tr>
+        <td><code>or_fallback_reasoning</code></td>
+        <td><strong>medium</strong></td>
+        <td>reasoning 字段被占位符替代，不影响报告正文</td>
+      </tr>
+      <tr>
+        <td><code>timeout_retry</code></td>
+        <td>low</td>
+        <td>超时后重试成功，无质量影响</td>
+      </tr>
+      <tr>
+        <td><code>data_gaps_remaining</code> <span class="badge badge-green">v5.2</span></td>
+        <td>medium</td>
+        <td>补搜后仍有信息缺口，质量可接受但不完整</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="two-col" style="margin-top:24px;">
+    <div class="model-card">
+      <div class="model-card-header">
+        <div class="model-icon" style="background:rgba(210,153,34,0.1);">⏱️</div>
+        <div>
+          <div class="model-name">StepBudget</div>
+          <div class="model-file">models.py — 每步资源约束</div>
+        </div>
+      </div>
+      <div class="field-list" style="grid-template-columns:1fr;">
+        <div class="field-item">
+          <span class="field-name">max_tokens</span>
+          <span class="field-type">int</span>
+          <span class="field-desc">Token 上限</span>
+        </div>
+        <div class="field-item">
+          <span class="field-name">timeout_seconds</span>
+          <span class="field-type">int</span>
+          <span class="field-desc">超时时间</span>
+        </div>
+        <div class="field-item">
+          <span class="field-name">max_retries</span>
+          <span class="field-type">int</span>
+          <span class="field-desc">重试次数（默认 2）</span>
+        </div>
+      </div>
+      <div style="margin-top:12px; font-size:0.8rem; color:var(--text-dim);">
+        <strong>v5.2：</strong>Step 1 timeout 120→180s（搜索补搜循环需要）
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-header">
+        <div class="model-icon" style="background:rgba(248,81,73,0.1);">📋</div>
+        <div>
+          <div class="model-name">SprintContract</div>
+          <div class="model-file">models.py — 接口预留，v4 不实例化</div>
+        </div>
+      </div>
+      <div class="field-list" style="grid-template-columns:1fr;">
+        <div class="field-item">
+          <span class="field-name">step_id</span>
+          <span class="field-type">str</span>
+        </div>
+        <div class="field-item">
+          <span class="field-name">deliverable</span>
+          <span class="field-type">str</span>
+        </div>
+        <div class="field-item">
+          <span class="field-name">acceptance_criteria</span>
+          <span class="field-type">list[str]</span>
+        </div>
+        <div class="field-item">
+          <span class="field-name">verification_method</span>
+          <span class="field-type">str</span>
+        </div>
+      </div>
+      <div style="margin-top:12px; font-size:0.8rem; color:var(--text-dim);">
+        <strong>v4 策略：</strong>验收标准直接写进 STEP_TASKS 的 task prompt 中，不创建 SprintContract 对象。
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+<span class="cm"># 预定义各步骤预算（5 步 LLM 调用）</span>
+STEP_BUDGETS = {
+    <span class="str">"1_info_collection"</span>:     StepBudget(<span class="num">100000</span>, <span class="num">180</span>, <span class="num">2</span>),  <span class="cm"># v5.2: 120→180（搜索补搜循环）</span>
+    <span class="str">"2_dimension_screening"</span>: StepBudget(<span class="num">20000</span>,  <span class="num">60</span>,  <span class="num">2</span>),  <span class="cm"># 维度筛选</span>
+    <span class="str">"3_structure_decision"</span>:  StepBudget(<span class="num">20000</span>,  <span class="num">60</span>,  <span class="num">2</span>),  <span class="cm"># 结构决策</span>
+    <span class="str">"4_content_generation"</span>:  StepBudget(<span class="num">150000</span>, <span class="num">180</span>, <span class="num">2</span>),  <span class="cm"># 内容生成（最大）</span>
+    <span class="str">"5_self_check"</span>:          StepBudget(<span class="num">50000</span>,  <span class="num">60</span>,  <span class="num">2</span>),  <span class="cm"># 自检</span>
+}
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Data Flow ==================== -->
+<div class="tab-panel" id="tab-dataflow">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(88,166,255,0.1);">🌊</div>
+    数据流图
+  </div>
+  <div class="section-desc">信息如何在各组件间流动 — 从用户输入到最终报告输出的完整链路。Step 1 内部标注「搜索补搜循环」。</div>
+
+  <div class="flow-container">
+    <!-- Row 1: User Input -->
+    <div class="flow-row">
+      <div class="flow-node">
+        <div class="node-title">👤 用户</div>
+        <div class="node-desc">CLI: python frost_agent.py "低空经济物流"</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">行业名称</span></div>
+      <div class="flow-node">
+        <div class="node-title">🎛️ Orchestrator</div>
+        <div class="node-desc">frost_agent.py — 生成 trace_id</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">初始化 State</span></div>
+      <div class="flow-node">
+        <div class="node-title">💾 Checkpoint</div>
+        <div class="node-desc">try_resume() 或新建</div>
+      </div>
+    </div>
+    <div class="flow-arrow-v"></div>
+
+    <!-- Row 2: Search -->
+    <div class="flow-row">
+      <div class="flow-node" style="border-color:var(--accent-green);">
+        <div class="node-title" style="color:var(--accent-green);">🔍 Search SubAgent</div>
+        <div class="node-desc">search.py — 3 query 并行 + 补搜循环</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">Tavily API</span></div>
+      <div class="flow-node">
+        <div class="node-title">🌐 外部数据</div>
+        <div class="node-desc">搜索结果（截断压缩）</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">搜索结果</span></div>
+      <div class="flow-node" style="border-color:var(--accent-green);">
+        <div class="node-title" style="color:var(--accent-green);">📝 Step 1 输出</div>
+        <div class="node-desc">JSON + quality_flags</div>
+      </div>
+    </div>
+    <div class="flow-arrow-v"></div>
+
+    <!-- Row 3: Context Builder -->
+    <div class="flow-row">
+      <div class="flow-node" style="max-width:280px;">
+        <div class="node-title">🧱 Context Builder</div>
+        <div class="node-desc">四层组装 → LLM Prompt</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">完整 Prompt</span></div>
+      <div class="flow-node">
+        <div class="node-title">🤖 LLM</div>
+        <div class="node-desc">DeepSeek-V4-Pro via SiliconFlow</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">生成结果</span></div>
+      <div class="flow-node" style="border-color:var(--accent-green);">
+        <div class="node-title" style="color:var(--accent-green);">📤 StepOutput</div>
+        <div class="node-desc">reasoning + result + quality_flags</div>
+      </div>
+    </div>
+    <div class="flow-arrow-v"></div>
+
+    <!-- Row 4: Steps 2-4 loop -->
+    <div class="flow-row">
+      <div class="flow-node" style="border-color:var(--accent-blue);">
+        <div class="node-title" style="color:var(--accent-blue);">🔄 Steps 2→3→4</div>
+        <div class="node-desc">重复：Context → LLM → Output</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">State 累积</span></div>
+      <div class="flow-node">
+        <div class="node-title">📚 Methodology Loader</div>
+        <div class="node-desc">按 step_id 切片注入</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">方法论切片</span></div>
+      <div class="flow-node">
+        <div class="node-title">💾 save_checkpoint()</div>
+        <div class="node-desc">每步完成后持久化（多版本）</div>
+      </div>
+    </div>
+    <div class="flow-arrow-v"></div>
+
+    <!-- Row 5: Evaluator -->
+    <div class="flow-row">
+      <div class="flow-node" style="border-color:var(--accent-purple);">
+        <div class="node-title" style="color:var(--accent-purple);">🔎 Independent Evaluator</div>
+        <div class="node-desc">仅接收报告文本，独立审查</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">C1-C5 审查</span></div>
+      <div class="flow-node">
+        <div class="node-title">📊 评估结果</div>
+        <div class="node-desc">pass / fail_with_fixes</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">判断</span></div>
+      <div class="flow-node" style="border-color:var(--accent-yellow);">
+        <div class="node-title" style="color:var(--accent-yellow);">⚠️ 警告注入（若失败）</div>
+        <div class="node-desc">头部插入自检未通过标记</div>
+      </div>
+    </div>
+    <div class="flow-arrow-v"></div>
+
+    <!-- Row 6: Output -->
+    <div class="flow-row">
+      <div class="flow-node" style="border-color:var(--accent-green);">
+        <div class="node-title" style="color:var(--accent-green);">📄 最终报告</div>
+        <div class="node-desc">Markdown + quality_flags 汇总</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">安全保存</span></div>
+      <div class="flow-node">
+        <div class="node-title">📁 reports/</div>
+        <div class="node-desc">UTC 时间戳 + 版本号</div>
+      </div>
+      <div class="flow-arrow-h"><span class="flow-label">Console 预览</span></div>
+      <div class="flow-node">
+        <div class="node-title">👤 用户</div>
+        <div class="node-desc">查看前 500 字符 + Token 成本摘要</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>关键数据流原则：</strong> State 对象贯穿全流程，每步完成后追加到 <code>state.steps</code> 并 checkpoint 持久化。Context Builder 的 Layer 4（前序摘要）从 <code>state.steps[-3:]</code> 读取，形成"步骤间信息传递"机制。Evaluator 是唯一的<strong>旁路</strong>——不修改 State，只返回评估结果供 Step 6 决策使用。v5 新增：每步产生 <code>quality_flags</code>，Step 6 汇总到报告尾部。
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Files ==================== -->
+<div class="tab-panel" id="tab-files">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(210,153,34,0.1);">📁</div>
+    文件结构与规模
+  </div>
+  <div class="section-desc">总计 2,458 行 Python（含注释和空行）。核心 6 文件 + Harness 5 文件 + 方法论拆分 + 配置 + 验证脚本。</div>
+
+  <div class="file-tree">
+    <div class="tree-line"><span class="tree-dir">行业定义agent/</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">frost_agent.py</span>              <span class="tree-badge badge-blue">~1,301 行</span> <span class="tree-comment"># Orchestrator + 六步 + v5 组件 + v5.2 搜索补搜循环</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">models.py</span>                   <span class="tree-badge badge-blue">~359 行</span>  <span class="tree-comment"># Schema + QualityFlag + Budget</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">methodology_loader.py</span>     <span class="tree-badge badge-blue">~287 行</span>  <span class="tree-comment"># v5 升级：拆分模块 + _meta.yaml</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">context_builder.py</span>        <span class="tree-badge badge-blue">~119 行</span>  <span class="tree-comment"># 四层上下文组装（v4 新增 L3）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">evaluator.py</span>              <span class="tree-badge badge-blue">~152 行</span>  <span class="tree-comment"># Independent Evaluator</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">search.py</span>                 <span class="tree-badge badge-blue">~240 行</span>  <span class="tree-comment"># 并行搜索 + 截断 + 降级（v5.2 不改接口）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file">requirements.txt</span>          <span class="tree-badge badge-blue">~12 行</span>   <span class="tree-comment"># pydantic, openai, tavily, dotenv, pyyaml</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file">.env.example</span>              <span class="tree-comment"># 环境变量模板</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-file py">_verify_report.py</span>         <span class="tree-badge badge-blue">~25 行</span>  <span class="tree-comment"># 报告验证脚本</span></div>
+    <div class="tree-line"></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-dir">harness/</span>                    <span class="tree-comment"># 控制面组件（5 个文件，v5 升级）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">__init__.py</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">circuit_breaker.py</span>      <span class="tree-badge badge-yellow">~170 行</span>  <span class="tree-comment"># 阶段一收尾，非 A 组</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">session_log.py</span>          <span class="tree-badge badge-green">~89 行</span>  <span class="tree-comment"># v5 升级：JSONL + trace_id（注入式）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">checkpoint.py</span>           <span class="tree-badge badge-green">~283 行</span>  <span class="tree-comment"># v5 升级：多版本 + 文件内 saved_at</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">token_audit.py</span>          <span class="tree-badge badge-green">~136 行</span>  <span class="tree-comment"># v5 新增：持久化报表 + CLI 摘要</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file py">output_safety.py</span>        <span class="tree-badge badge-green">~76 行</span>  <span class="tree-comment"># v5 新增：UTC 时间戳 + 版本号</span></div>
+    <div class="tree-line"></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-dir">方法论/</span>                     <span class="tree-comment"># v5 新增：拆分模块</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file">_meta.yaml</span>              <span class="tree-comment"># 版本声明 + 模块清单</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file md">hard_rules.md</span>           <span class="tree-comment"># R1-R5</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file md">heuristics.md</span>           <span class="tree-comment"># H1-H4</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file md">self_check.md</span>           <span class="tree-comment"># C1-C5</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-file md">methodology_full.md</span>     <span class="tree-comment"># fallback 完整版</span></div>
+    <div class="tree-line"></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-dir">checkpoints/</span>              <span class="tree-comment"># 自动生成（v5：多版本）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-dir">reports/</span>                  <span class="tree-comment"># 自动生成（v5：UTC 时间戳）</span></div>
+    <div class="tree-line"><span class="tree-indent"></span><span class="tree-dir">logs/</span>                     <span class="tree-comment"># 自动生成（v5：JSONL + token_audit）</span></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(88,166,255,0.1);">🔗</div>
+    模块依赖关系
+  </div>
+
+  <div class="code-block">
+<span class="cm"># frost_agent.py 导入链</span>
+frost_agent.py
+├── models.py              <span class="cm"># ReportState, StepOutput, QualityFlag, STEP_BUDGETS</span>
+├── context_builder.py     <span class="cm"># ContextBuilder (四层组装)</span>
+├── evaluator.py           <span class="cm"># evaluate(), mock_evaluate()</span>
+├── search.py              <span class="cm"># search_with_fallback(), mock_search()</span>
+├── methodology_loader.py  <span class="cm"># load_slice() (v5 升级：拆分模块)</span>
+└── harness/
+    ├── circuit_breaker.py <span class="cm"># call_with_timeout()</span>
+    ├── session_log.py     <span class="cm"># SessionEventLog (v5 升级：JSONL + trace_id)</span>
+    ├── checkpoint.py      <span class="cm"># CheckpointManager (v5 升级：多版本 + saved_at)</span>
+    ├── token_audit.py     <span class="cm"># TokenAudit (v5 新增：持久化报表)</span>
+    └── output_safety.py   <span class="cm"># OutputSafety (v5 新增：UTC 时间戳)</span>
+
+<span class="cm"># context_builder.py 导入链</span>
+context_builder.py
+├── methodology_loader.py  <span class="cm"># load_slice() (v5 升级：拆分模块)</span>
+└── models.py              <span class="cm"># ReportState, StepOutput</span>
+
+<span class="cm"># evaluator.py: 无内部依赖（纯逻辑）</span>
+<span class="cm"># search.py: 无内部依赖（纯外部 API 调用）</span>
+<span class="cm"># methodology_loader.py: yaml (v5 新增)</span>
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Harness ==================== -->
+<div class="tab-panel" id="tab-harness">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(63,185,80,0.1);">🛡️</div>
+    Harness 控制面 — 7 项基础设施升级
+  </div>
+  <div class="section-desc">v5 将 v4 的 3 个打桩组件升级到 7 个完整可用组件，为阶段三 Evaluator-Optimizer 闭环预留接口。</div>
+
+  <div class="grid-3">
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">🚩 quality_flags</div>
+        <span class="badge badge-green">v5 新增</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>models.py</code></p>
+        <p><strong>核心功能：</strong>Pydantic 模型约束，跨步骤异常传递。降级信息不消失在状态对象中，按 high/medium/low 严重度分组汇总到报告尾部。</p>
+        <p><strong>关键约束：</strong>category 预定义值可扩展，但新增需登记；or_fallback 拆分为 result（high）和 reasoning（medium）。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">📝 Session Event Log</div>
+        <span class="badge badge-green">v5 升级</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>harness/session_log.py</code></p>
+        <p><strong>核心功能：</strong>JSONL 持久化，append-only，trace_id 注入（Orchestrator 统一生成），降级到 print 不崩溃。</p>
+        <p><strong>关键约束：</strong>签名兼容 v4 SimpleLogger；目录创建失败也降级。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">💰 Token Audit</div>
+        <span class="badge badge-green">v5 新增</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>harness/token_audit.py</code></p>
+        <p><strong>核心功能：</strong>持久化报表（JSON + Markdown），CLI 成本摘要。不改变 StepOutput 模型。</p>
+        <p><strong>关键约束：</strong>定价来源明确标注（SiliconFlow 官网）；文件名含 trace_id。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">💾 Checkpoint</div>
+        <span class="badge badge-green">v5 升级</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>harness/checkpoint.py</code></p>
+        <p><strong>核心功能：</strong>多版本 + 文件内 saved_at 过期清理，load_version step_id 必填，v4 兼容。</p>
+        <p><strong>关键约束：</strong>清理逻辑基于文件内 saved_at，不依赖文件名解析；损坏文件分层清理。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">🔒 Output Safety</div>
+        <span class="badge badge-green">v5 新增</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>harness/output_safety.py</code></p>
+        <p><strong>核心功能：</strong>UTC 时间戳 + 时区标注，版本号追加。避免不同时区运行时碰撞。</p>
+        <p><strong>关键约束：</strong>时区标注用途是可读性，非防碰撞；检测到已存在时追加版本号。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">📚 methodology/</div>
+        <span class="badge badge-green">v5 新增</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>methodology_loader.py</code> + <code>方法论/</code> 目录</p>
+        <p><strong>核心功能：</strong>拆分模块 + <code>_meta.yaml</code> + 版本一致性检查。保持正则切片 fallback。</p>
+        <p><strong>关键约束：</strong>不支持运行时切换；fallback 始终保持最新；拆分后验证不丢章节。</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent-green);">
+      <div class="card-header">
+        <div class="card-title">🔍 Step 1 搜索补搜循环</div>
+        <span class="badge badge-green">v5.2 新增</span>
+      </div>
+      <div class="card-body">
+        <p><strong>实现文件：</strong><code>frost_agent.py</code>（Step 1 内部）</p>
+        <p><strong>核心功能：</strong>FM 审查搜索结果 → 最多 2 轮补搜 → data_gaps_remaining（如有）。</p>
+        <p><strong>关键约束：</strong>不改 search.py 接口；总共 ≤5 个 query；FM 基于方法论信息优先级。</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== TAB: Decisions ==================== -->
+<div class="tab-panel" id="tab-decisions">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(63,185,80,0.1);">✅</div>
+    设计决策矩阵
+  </div>
+  <div class="section-desc">v5.2 采用"完整做 / 打桩做 / 不做"三级策略，明确范围边界。v5 将 4 个打桩组件升级到完整做，新增 3 个完整做组件。</div>
+
+  <div style="margin-bottom:8px; font-size:0.85rem; color:var(--text-dim);">
+    <span class="status-dot status-full"></span> 完整做（核心功能，高质量实现）
+    <span class="status-dot status-stub" style="margin-left:16px;"></span> 打桩做（保留接口，简化实现）
+    <span class="status-dot status-skip" style="margin-left:16px;"></span> 不做（明确排除）
+  </div>
+
+  <table class="decision-table">
+    <thead>
+      <tr>
+        <th style="width:28%">功能</th>
+        <th style="width:10%">决策</th>
+        <th style="width:62%">说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Orchestrator + 六步管线</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>frost_agent.py</code> ~1,301 行。严格线性执行，Step 5 失败时注入警告 + quality_flags 汇总。</td>
+      </tr>
+      <tr>
+        <td><strong>Context Builder 四层</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>context_builder.py</code> ~119 行。v4 新增 Layer 3 任务指令层，v5 继承。</td>
+      </tr>
+      <tr>
+        <td><strong>搜索并行 + 结果压缩</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>search.py</code> ~240 行。3 query 并行 + 截断 + 全失败降级。支持 Tavily Async API 和 Mock 模式。</td>
+      </tr>
+      <tr>
+        <td><strong>StepBudget（资源约束）</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>models.py</code> 定义。v5.2 Step 1 timeout 120→180s。</td>
+      </tr>
+      <tr>
+        <td><strong>Independent Evaluator</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>evaluator.py</code> ~152 行。独立 LLM 调用，不同 prompt，不接收生成过程 reasoning。C1-C5 审查。</td>
+      </tr>
+      <tr>
+        <td><strong>Methodology Loader 切片</strong></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>methodology_loader.py</code> ~287 行。v5 升级：拆分模块 + _meta.yaml + 版本一致性检查。</td>
+      </tr>
+      <tr>
+        <td><strong>quality_flags</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>models.py</code> 新增 QualityFlag 模型。跨步骤异常传递，按严重度分组汇总到报告尾部。</td>
+      </tr>
+      <tr>
+        <td><strong>Session Event Log</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>harness/session_log.py</code> ~89 行。v5 从打桩升级到完整做：JSONL + trace_id 注入。</td>
+      </tr>
+      <tr>
+        <td><strong>Checkpoint 机制</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>harness/checkpoint.py</code> ~283 行。v5 从打桩升级到完整做：多版本 + 文件内 saved_at 过期清理。</td>
+      </tr>
+      <tr>
+        <td><strong>Token Audit</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>harness/token_audit.py</code> ~136 行。v5 新增：持久化报表（JSON + Markdown）+ CLI 成本摘要。</td>
+      </tr>
+      <tr>
+        <td><strong>Output Safety</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>harness/output_safety.py</code> ~76 行。v5 新增：UTC 时间戳 + 时区标注 + 版本号追加。</td>
+      </tr>
+      <tr>
+        <td><strong>methodology 拆分</strong> <span class="badge badge-green">v5</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td><code>方法论/</code> 目录 + <code>methodology_loader.py</code> 升级。拆分模块 + _meta.yaml + 版本一致性检查。</td>
+      </tr>
+      <tr>
+        <td><strong>Step 1 搜索补搜循环</strong> <span class="badge badge-green">v5.2</span></td>
+        <td><span class="status-dot status-full"></span> 完整做</td>
+        <td>FM 审查 + 最多 2 轮补搜 + data_gaps_remaining（v5.2）。不改 search.py 接口。</td>
+      </tr>
+      <tr>
+        <td><strong>Sprint Contract</strong></td>
+        <td><span class="status-dot status-stub"></span> 打桩做</td>
+        <td>类定义保留在 <code>models.py</code> 中（接口不堵死），但 Orchestrator 不实例化。验收标准直接写进 STEP_TASKS。</td>
+      </tr>
+      <tr>
+        <td><strong>Circuit Breaker</strong></td>
+        <td><span class="status-dot status-stub"></span> 打桩做</td>
+        <td><code>harness/circuit_breaker.py</code> ~170 行。阶段一收尾已完成，非 A 组。简化版指数退避重试。</td>
+      </tr>
+      <tr>
+        <td><strong>Evaluator-Optimizer 自动修正闭环</strong></td>
+        <td><span class="status-dot status-skip"></span> 不做</td>
+        <td>改变行为契约（Brief 约束 #3）。Demo 不需要全自动修正。v5 改为 Step 5 失败时注入警告 + quality_flags 汇总。</td>
+      </tr>
+      <tr>
+        <td><strong>Model Router（多模型降级链）</strong></td>
+        <td><span class="status-dot status-skip"></span> 不做</td>
+        <td>Demo 用单一模型（DeepSeek-V4-Pro）。换模型引入的行为差异是噪音。成本优化优先级低于功能正确性。</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ==================== TAB: Cost ==================== -->
+<div class="tab-panel" id="tab-cost">
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(210,153,34,0.1);">💰</div>
+    成本与延迟估算
+  </div>
+  <div class="section-desc">以 deepseek-v4-pro 计价，端到端约 40-135 秒（含补搜最坏情况），成本约 $0.028-0.041。v5.2 新增 FM 审查成本，但多数情况不触发补搜。</div>
+
+  <table class="cost-table">
+    <thead>
+      <tr>
+        <th>步骤</th>
+        <th>估计 Input Tokens</th>
+        <th>估计 Output Tokens</th>
+        <th>估计 API 成本</th>
+        <th>预估耗时</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Step 1: 搜索+总结 <span class="badge badge-green">v5.2</span></td>
+        <td>~8,000 + FM 审查</td>
+        <td>~2,000 + FM 输出</td>
+        <td>~$0.0045-0.0075</td>
+        <td>3-8s 搜索 + 5-15s LLM + 0-45s 补搜</td>
+      </tr>
+      <tr>
+        <td>Step 2: 维度筛选</td>
+        <td>~6,000</td>
+        <td>~1,500</td>
+        <td>~$0.0033</td>
+        <td>5-10s</td>
+      </tr>
+      <tr>
+        <td>Step 3: 结构决策</td>
+        <td>~5,000</td>
+        <td>~1,000</td>
+        <td>~$0.0025</td>
+        <td>5-10s</td>
+      </tr>
+      <tr>
+        <td>Step 4: 内容生成</td>
+        <td>~12,000</td>
+        <td>~8,000-15,000</td>
+        <td>~$0.012-0.020</td>
+        <td>15-35s（瓶颈）</td>
+      </tr>
+      <tr>
+        <td>Step 5: 自检</td>
+        <td>~10,000</td>
+        <td>~1,500</td>
+        <td>~$0.0045</td>
+        <td>5-15s</td>
+      </tr>
+      <tr style="background:rgba(63,185,80,0.05);">
+        <td class="cost-total">端到端总计</td>
+        <td class="cost-total">~41,000</td>
+        <td class="cost-total">~18,000-21,000</td>
+        <td class="cost-total">~$0.028-0.041</td>
+        <td class="cost-total">~40-135s</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warning-box" style="margin-top:20px;">
+    <strong>v5.2 成本分析：</strong>FM 审查用 max_tokens=2000，每次约 $0.002。最坏情况 3 次 FM 审查 = $0.006 额外。多数情况不触发补搜（静态模板已覆盖），平均额外成本 &lt; $0.001/次。总成本仍远低于 $0.10 闸门。Step 1 timeout 从 120s → 180s（工程需要，非考核要求）。
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">
+    <div class="icon" style="background:rgba(63,185,80,0.1);">✓</div>
+    验收标准
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">功能验收</div>
+      </div>
+      <div class="card-body">
+        <p>✅ <code>python frost_agent.py "低空经济物流"</code> 稳定产出报告（手动运行 3 次，3 次成功）</p>
+        <p>✅ 方法论附注可见完整维度取舍推理</p>
+        <p>✅ Step 5 自检 C1-C5 逐项有 PASS/FAIL</p>
+        <p>✅ 自检 FAIL 时报告头部有警告标记</p>
+        <p>✅ 报告中不含竞争排名、市场份额、投资建议</p>
+        <p>✅ v5: 报告尾部有 quality_flags 汇总（按严重度分组）</p>
+        <p>✅ v5.2: Step 1 搜索补搜循环最多 2 轮，总共 ≤5 个 query</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">可靠性验收</div>
+      </div>
+      <div class="card-body">
+        <p>✅ 进程崩溃后可从 checkpoint 恢复续跑（模拟 kill -9 后重跑）</p>
+        <p>✅ Step 1 搜索 &lt; 10 秒（不含补搜）</p>
+        <p>✅ 成本/延迟有实测数据更新（实际运行后回填）</p>
+        <p>✅ Mock 模式可离线运行（无 API 密钥）</p>
+        <p>✅ 断点恢复支持（--resume 参数）</p>
+        <p>✅ v5: Session Event Log 写入 JSONL（含 trace_id）</p>
+        <p>✅ v5: Token Audit 生成 JSON + Markdown 报表</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</main>
+
+<script>
+// Tab switching
+const tabs = document.querySelectorAll('.nav-tab');
+const panels = document.querySelectorAll('.tab-panel');
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    panels.forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + target).classList.add('active');
+  });
+});
+
+// Pipeline step clicking
+const pipelineSteps = document.querySelectorAll('.pipeline-step');
+const stepDetails = document.querySelectorAll('.step-detail');
+
+pipelineSteps.forEach(step => {
+  step.addEventListener('click', () => {
+    const stepNum = step.dataset.step;
+    // Update active step styling
+    pipelineSteps.forEach(s => s.classList.remove('active-step'));
+    step.classList.add('active-step');
+    // Show corresponding detail
+    stepDetails.forEach(d => d.classList.remove('show'));
+    document.getElementById('detail-' + stepNum).classList.add('show');
+  });
+});
+</script>
+
+</body>
+</html>
