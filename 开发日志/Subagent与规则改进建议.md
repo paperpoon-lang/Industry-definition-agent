@@ -526,7 +526,7 @@ if __name__ == "__main__":
 
 | Agent | 描述 | 何时应调但没调 | 为什么没调 |
 |-------|------|--------------|-----------|
-| `methodology-expert` | "审查和改进基于  标准的行业分析方法论" | Step 5 自检失败时分析是否源于方法论应用问题；方法论 v2→v5 升级后检查新规则生效情况 | **完全忘了它存在**。名字含"品牌前缀"和"methodology"，与项目高度相关，但 16 个 agent 列表太长，在具体任务中想不起来 |
+| `methodology-expert` | "审查和改进行业定义标准的行业分析方法论" | Step 5 自检失败时分析是否源于方法论应用问题；方法论 v2→v5 升级后检查新规则生效情况 | **完全忘了它存在**。名字含品牌前缀和"methodology"，与项目高度相关，但 16 个 agent 列表太长，在具体任务中想不起来 |
 | `definition-quality-checker` | "验证行业定义 Agent 的输出质量" | 5 行业批量测试后验证输出语义质量（非代码正确性） | 同上。有 agent-code-validator 验证代码质量后，没想到还有专门的"输出质量" validator |
 | `python-backend-implementer` | "将 Agent 架构设计规范转换为可运行的 Python 代码" | 从零实现新模块（如 token_audit.py、output_safety.py）时 | 描述说它实现固定四个文件，我们是增量升级不是从零实现，感觉不匹配 |
 
