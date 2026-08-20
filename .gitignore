@@ -12,5 +12,8 @@ webui/.venv-ui/
 ai_default/
 回收站/
 
+# IDE 层配置（hooks/规则，非产品交付物，不进仓库）
+.trae/
+
 # release 内部执行计划（不入库；方案文档见 RELEASE-PLAN.md 本地保留）
 RELEASE-PLAN.md

@@ -5,7 +5,7 @@
 输入一个行业名称，自动产出符合行业定义方法论的行业定义报告。核心是六步流程 Agent + 补搜迭代（B1-2 v1.4）与全链路审计 harness。
 
 ![CI](https://github.com/paperpoon-lang/Industry-definition-agent/actions/workflows/tests.yml/badge.svg)
-![License: MIT + CC BY-NC](https://img.shields.io/badge/License-MIT%20%2B%20CC%20BY--NC%204.0-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Release](https://img.shields.io/github/v/release/paperpoon-lang/Industry-definition-agent)
 
 ## 快速开始（3 步）
@@ -58,22 +58,18 @@ Industry-definition-agent/
 │   ├── search.py          # 并行搜索 + 补搜循环
 │   ├── methodology_loader.py
 │   ├── harness/           # SessionEventLog / Checkpoint / TokenAudit / OutputSafety
-│   ├── 方法论/            # 方法论切片（H1-H4、自检清单等）
+│   ├── 方法论/            # 方法论切片（H1-H4、自检清单等，运行时加载）
 │   ├── tests/             # 51 项测试（全 mock，无 API key）
 │   └── requirements.txt
 ├── webui/                 # Streamlit WebUI（25 项纯函数测试）
-├── demo/                  # 阶段一参考基线（配置已过时，仅作对照）
-├── 架构设计/              # 架构演进文档（v1→v5.2）、B1-2 补搜方案（v1.0→v1.4）
-├── 开发日志/              # 迭代决策与根因分析
-├── 说明文档/  kimi产出的文档/  trae的建议/
 ├── CHANGELOG.md
-├── LICENSE                # 双许可：代码 MIT + 方法论 CC BY-NC 4.0
+├── LICENSE                # MIT
 └── .github/workflows/     # CI：demo2 + webui 测试
 ```
 
 ## 已知边界
 
-- **约 84% 的残留缺口属结构性不可达**（★★★★☆ 定性，单人分类）：Tavily 提供的是片段级而非全文级信息，官方全文/一手文件/公开渠道难被索引时，多轮补搜只能把缺口定位到精确坐标、无法直接补全。详见 `架构设计/B1-2补搜迭代方案-v1.4.md` §13。
+- **约 84% 的残留缺口属结构性不可达**（★★★★☆ 定性，单人分类）：Tavily 提供的是片段级而非全文级信息，官方全文/一手文件/公开渠道难被索引时，多轮补搜只能把缺口定位到精确坐标、无法直接补全。
 - **阶段三方向**：接入非碎片化搜索源（官方标准平台 / SEC / 学术库）以改变缺口结构。
 
 ## 实测数据（2026-08，★★★★★ 一手实测）
@@ -96,7 +92,4 @@ cd webui && python3 -m pytest tests/ -q   # 25 passed
 
 ## 许可证
 
-双许可，见 [LICENSE](LICENSE)：
-
-- **代码**（demo2/、webui/ 下 `*.py` 及配置）：**MIT License**
-- **方法论/过程文档**（`demo2/方法论/`、`demo/方法论/`、`方法论-v2.md`、`架构设计/`、`开发日志/`、`说明文档/`、`kimi产出的文档/`、`trae的建议/`、`research/` 等）：**CC BY-NC 4.0**（非商用，需署名）
+本项目使用 [MIT License](LICENSE)。

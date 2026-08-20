@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 的极简约定，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-> 注：`v5.2.0` 是首个正式 GitHub Release。在此之前项目于本仓库内迭代演进（六步流程 v1→v5.2、补搜机制 B1-2 v1.0→v1.4 等），完整历史见 `git log` 与 `开发日志/`、`架构设计/`。
+> 注：`v5.2.0` 是首个正式 GitHub Release。在此之前项目于本仓库内迭代演进（六步流程 v1→v5.2、补搜机制 B1-2 v1.0→v1.4 等），完整历史见 `git log`。
 
 ## [5.2.0] - 2026-08-20
 
